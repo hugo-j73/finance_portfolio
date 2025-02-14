@@ -1,0 +1,23 @@
+# Exemple of Monte Carlo simulation (call option) in Black-Scholes-Merton model
+
+import math
+import numpy as np
+
+# Define the parameters
+S0 = float(input("Define the initial index model (S0) : "))
+K = float(input("Define the strike price (K) : "))
+T = float(input("Define the time-to-maturity (T): "))
+r = float(input("Define the riskless short rate (r): "))
+sigma = float(input("Define the volatility (sigma): "))
+
+I = int(input("Define the number of simulation: "))
+
+# Valuation Algorithm
+z = np.random.standard_normal(I)
+# Index values at maturity
+ST = S0 * np.exp((r - 0.5 * sigma ** 2) * T + sigma * math.sqrt(T) * 2)
+hT = np.maximum(ST - K, 0)  # payoff at maturity
+C0 = math.exp(-r * T) * np.mean(hT)  # Monte Carlo estimator
+
+# Result Output
+print(f'Value of the European call option {C0}.')
