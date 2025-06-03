@@ -1,0 +1,3052 @@
+---
+title: "Projet_Risque_MP"
+author: "H.JUGAND_T.LE.BIHAN_A.KWIECIEN"
+date: "2024-11-26"
+output: word_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Informations préalables
+
+Voici les 3 matières premières comportant notre portefeuille :
+
+-   Cuivre (HG=F), noté "Cooper"
+
+-   Gaz Naturel (NG=F), noté "Gaz"
+
+-   Maïs (ZC=F), noté Corn
+
+Les 3 périodes à analyser sont nommées de la manière suivante :
+
+-   Covid : 02/03/020 au 31/03/2020
+
+-   Post_Covid : 01/03/2021 au 31/03/2021
+
+-   Ukraine : 01/03/2022 au 31/03/2022
+
+Pour chaque dataset créé, la typologie suivante est utilisée :
+
+*Actif_Type\*\_Period*
+
+\* Le type désigne le type de donnée se trouvant dans le dataset
+(Closing price, Return, Anova, T-test...)
+
+Les values quand à elles, sont notées de la manière suivante :
+
+Type_Actif_Period
+
+Des variables financières sont rajoutées à partir du point 4, ce sont
+les suivantes :
+
+-   13 Week Treasury Bill (\^IRX), noté TS13w
+
+-   EUR/USD (EURUSD=X), noté EURUSD
+
+-   NASDAQ Composite (\^IXIC), noté NASDAQ
+
+-   CBOE Volatility Index (\^VIX), noté CBOE
+
+-   Wheat (KE=F) noté Wheat
+
+# 1. Importation des données
+
+[Importation des librairies pour la totalité du projet :]{.underline}
+
+```{r}
+library(quantmod)
+library(ggtrendline)
+library(ggplot2)
+library(tidyquant)
+library(pastecs)
+library(stats)
+library(tidyr)
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(corrplot)
+library(jtools)
+library(huxtable)
+library(flextable)
+library(fBasics)
+library(forecast)
+library(lmtest)
+```
+
+[Importation des données du Cuivre :]{.underline}
+
+```{r}
+# Importation des données depuis Yahoo! Finance
+Cooper_closing_Covid <- getSymbols("HG=F", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+Cooper_closing_Post_Covid <- getSymbols("HG=F", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+Cooper_closing_Ukraine <- getSymbols("HG=F", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+Cooper_closing_Covid <- data.frame(Date = index(Cooper_closing_Covid), Cooper_closing = coredata(Cooper_closing_Covid))
+Cooper_closing_Post_Covid <- data.frame(Date = index(Cooper_closing_Post_Covid), Cooper_closing = coredata(Cooper_closing_Post_Covid))
+Cooper_closing_Ukraine <- data.frame(Date = index(Cooper_closing_Ukraine), Cooper_closing = coredata(Cooper_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+# View(Cooper_closing_Covid)
+# View(Cooper_closing_Post_Covid)
+# View(Cooper_closing_Ukraine)
+```
+
+[Création des TimePeriod et DataSet pour le cours du cuivre
+:]{.underline}
+
+```{r}
+# Création des TimePeriod
+# Periode Covid
+Tp_Cooper_Covid <- as.Date(Cooper_closing_Covid$Date, format="%Y/%m/%d")
+# Periode Post-Covid
+Tp_Cooper_Post_Covid <- as.Date(Cooper_closing_Post_Covid$Date, format="%Y/%m/%d")
+# Periode Ukraine
+Tp_Cooper_Ukraine <- as.Date(Cooper_closing_Ukraine$Date, format="%Y/%m/%d")
+
+# Création des DataSet
+#Periode Covid
+Cooper_Data_Covid <- xts(x = Cooper_closing_Covid$HG.F.Close, order.by = Tp_Cooper_Covid)
+#Periode Post_Covid
+Cooper_Data_Post_Covid <- xts(x = Cooper_closing_Post_Covid$HG.F.Close, order.by = Tp_Cooper_Post_Covid)
+#Periode Ukraine
+Cooper_Data_Ukraine <- xts(x = Cooper_closing_Ukraine$HG.F.Close, order.by = Tp_Cooper_Ukraine)
+```
+
+[Importation des données du Gaz Naturel :]{.underline}
+
+```{r}
+# Importation des données depuis Yahoo! Finance
+Gaz_closing_Covid <- getSymbols("NG=F", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+Gaz_closing_Post_Covid <- getSymbols("NG=F", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+Gaz_closing_Ukraine <- getSymbols("NG=F", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+Gaz_closing_Covid <- data.frame(Date = index(Gaz_closing_Covid), Gaz_closing = coredata(Gaz_closing_Covid))
+Gaz_closing_Post_Covid <- data.frame(Date = index(Gaz_closing_Post_Covid), Gaz_closing = coredata(Gaz_closing_Post_Covid))
+Gaz_closing_Ukraine <- data.frame(Date = index(Gaz_closing_Ukraine), Gaz_closing = coredata(Gaz_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(Gaz_closing_Covid)
+#View(Gaz_closing_Post_Covid)
+#View(Gaz_closing_Ukraine)
+```
+
+[Création des TimePeriod et DataSet pour le cours du gaz naturel
+:]{.underline}
+
+```{r}
+# Création des TimePeriod
+# Periode Covid
+Tp_Gaz_Covid <- as.Date(Gaz_closing_Covid$Date, format="%Y/%m/%d")
+# Periode Post-Covid
+Tp_Gaz_Post_Covid <- as.Date(Gaz_closing_Post_Covid$Date, format="%Y/%m/%d")
+# Periode Ukraine
+Tp_Gaz_Ukraine <- as.Date(Gaz_closing_Ukraine$Date, format="%Y/%m/%d")
+
+# Création des DataSet
+#Periode Covid
+Gaz_Data_Covid <- xts(x = Gaz_closing_Covid$NG.F.Close, order.by = Tp_Gaz_Covid)
+#Periode Post_Covid
+Gaz_Data_Post_Covid <- xts(x = Gaz_closing_Post_Covid$NG.F.Close, order.by = Tp_Gaz_Post_Covid)
+#Periode Ukraine
+Gaz_Data_Ukraine <- xts(x = Gaz_closing_Ukraine$NG.F.Close, order.by = Tp_Gaz_Ukraine)
+```
+
+[Importation des données du Maïs :]{.underline}
+
+```{r}
+# Importation des données depuis Yahoo! Finance
+Corn_closing_Covid <- getSymbols("ZC=F", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+Corn_closing_Post_Covid <- getSymbols("ZC=F", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+Corn_closing_Ukraine <- getSymbols("ZC=F", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+Corn_closing_Covid <- data.frame(Date = index(Corn_closing_Covid), Corn_closing = coredata(Corn_closing_Covid))
+Corn_closing_Post_Covid <- data.frame(Date = index(Corn_closing_Post_Covid), Corn_closing = coredata(Corn_closing_Post_Covid))
+Corn_closing_Ukraine <- data.frame(Date = index(Corn_closing_Ukraine), Corn_closing = coredata(Corn_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(Corn_closing_Covid)
+#View(Corn_closing_Post_Covid)
+#View(Corn_closing_Ukraine)
+```
+
+[Création des TimePeriod et DataSet pour le cours du maïs :]{.underline}
+
+```{r}
+# Création des TimePeriod
+# Periode Covid
+Tp_Corn_Covid <- as.Date(Corn_closing_Covid$Date, format="%Y/%m/%d")
+# Periode Post-Covid
+Tp_Corn_Post_Covid <- as.Date(Corn_closing_Post_Covid$Date, format="%Y/%m/%d")
+# Periode Ukraine
+Tp_Corn_Ukraine <- as.Date(Corn_closing_Ukraine$Date, format="%Y/%m/%d")
+
+# Création des DataSet
+#Periode Covid
+Corn_Data_Covid <- xts(x = Corn_closing_Covid$ZC.F.Close, order.by = Tp_Corn_Covid)
+#Periode Post_Covid
+Corn_Data_Post_Covid <- xts(x = Corn_closing_Post_Covid$ZC.F.Close, order.by = Tp_Corn_Post_Covid)
+#Periode Ukraine
+Corn_Data_Ukraine <- xts(x = Corn_closing_Ukraine$ZC.F.Close, order.by = Tp_Corn_Ukraine)
+```
+
+# 2. Statistiques descriptives
+
+## 2.1 Comparaisons
+
+[**Rappel des notions :**]{.underline}
+
+-   [Analyse du R² :]{.underline} Plus le R² sera proche de 1, plus la
+    droite ajustée (En bleu dans les prochaines anlayses) correspond aux
+    données et donc explique les variations de la matière première.
+
+-   [Analyse de la p-value]{.underline} : Si la p-value est faible
+    (p\<0.05), cela indique que les variations de la matière première
+    ont un effet significatif sur le portefeuille. Si la p-value est
+    élevée (p\>0.05), la relation linéaire est dûe au hasard.
+
+### 2.1.1 Comparaison par période : Période Covid
+
+#### a) Création des graphiques pour la période Covid (mars 2020)
+
+[Courbe du Cuivre :]{.underline}
+
+```{r}
+ggtrendline(Tp_Cooper_Covid, Cooper_Data_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Cooper_Covid, Cooper_Data_Covid)) + 
+  labs(title = "Tendance cours du cuivre période covid", 
+       y="Cours cuivre (dollars US)", 
+       x="Période")
+```
+
+[Courbe du Gaz naturel :]{.underline}
+
+```{r}
+ggtrendline(Tp_Gaz_Covid, Gaz_Data_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Gaz_Covid, Gaz_Data_Covid)) + 
+  labs(title = "Tendance cours du gaz naturel période covid", 
+       y="Cours du gaz (dollars US)", 
+       x="Période")
+```
+
+[Courbe du Maïs :]{.underline}
+
+```{r}
+ggtrendline(Tp_Corn_Covid, Corn_Data_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Corn_Covid, Corn_Data_Covid)) + 
+  labs(title = "Tendance cours du maïs période covid", 
+       y="Cours du maïs (dollars US)", 
+       x="Période")
+```
+
+#### b) Comparaison du cours des 3 matières premières sur la période Covid
+
+[*A VERIFIER*]{.underline}
+
+| Nom de la matière première | Equation de droite  | R²    | P-value     |
+|----------------------------|---------------------|-------|-------------|
+| Cuivre                     | y = -0.0194x + 358  | 0.869 | p \< 0.0001 |
+| Gaz Naturel                | y = -0.00766x + 142 | 0.425 | p = 0.00137 |
+| Maïs                       | y = -1.78x + 32926  | 0.772 | p \< 0.0001 |
+
+[Cuivre :]{.underline} Nous avons un R² élevé (0.869), ce qui veut dire
+que la droite ajustée explique les variations du cuivre. Nous avons une
+p-value très significative (p \< 0.0001) qui suggère que le cuivre a une
+forte corrélation avec le portefeuille.
+
+[Gaz naturel]{.underline} : Nous avons un R² faible (0.425), ce qui veut
+dire que la droite ajustée explique peu les variations du gaz naturel.
+Nous avons une p-value très significative (0.00137) qui suggère que gaz
+naturel a une forte corrélation avec le portefeuille.
+
+[Maïs :]{.underline} Nous avons un R² faible (0.772), ce qui veut dire
+que la droite ajustée explique les variations du maïs. Nous avons une
+p-value non significative (p \< 0.0001) qui suggère que le maïs a une
+forte corrélation avec le portefeuille.
+
+Nous pouvons également voir via les équations des droites que les 3 x
+sont négatifs, nous avons donc une baisse du cours de ces matières
+premières sur la période Covid. La matière première la plus impactée
+étant le maïs.
+
+### 2.1.2 Comparaison par période : Post Covid
+
+#### a) Création des graphiques pour la période Post Covid (mars 2021)
+
+[Courbe du cuivre :]{.underline}
+
+```{r}
+ggtrendline(Tp_Cooper_Post_Covid, Cooper_Data_Post_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Cooper_Post_Covid, Cooper_Data_Post_Covid)) + 
+  labs(title = "Tendance cours du cuivre période post covid", 
+       y="Cours cuivre (dollars US)", 
+       x="Période")
+```
+
+[Courbe du gaz naturel :]{.underline}
+
+```{r}
+ggtrendline(Tp_Gaz_Post_Covid, Gaz_Data_Post_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Gaz_Post_Covid, Gaz_Data_Post_Covid)) + 
+  labs(title = "Tendance cours du gaz naturel période post covid", 
+       y="Cours du gaz (dollars US)", 
+       x="Période")
+```
+
+[Courbe du maïs :]{.underline}
+
+```{r}
+ggtrendline(Tp_Corn_Post_Covid, Corn_Data_Post_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Corn_Post_Covid, Corn_Data_Post_Covid)) + 
+  labs(title = "Tendance cours du maïs période post covid", 
+       y="Cours du maïs (dollars US)", 
+       x="Période")
+```
+
+#### b) Comparaison du cours des 3 matières premières sur la période post Covid
+
+| Nom de la matière première | Equation de droite   | R²    | P-value     |
+|----------------------------|----------------------|-------|-------------|
+| Cuivre                     | y = -0.00267x + 54.1 | 0.149 | p = 0.0764  |
+| Gaz Naturel                | y = -0.00887x + 168  | 0.582 | p \< 0.0001 |
+| Maïs                       | y = -0.294x + 6051   | 0.171 | p = 0.0561  |
+
+[Cuivre :]{.underline} Nous avons un R² très faible (0.149), ce qui veut
+dire que la droite ajustée explique peu les variations du cuivre. Nous
+avons une p-value non significative (0.0764) qui suggère que le cuivre a
+peu d'impact sur le portefeuille.
+
+[Gaz naturel]{.underline} : Nous avons un R² faible (0.582), ce qui veut
+dire que la droite ajustée explique peu les variations du gaz naturel.
+Nous avons une p-value très significative (p \< 0.0001) qui suggère que
+gaz naturel a une forte corrélation avec le portefeuille.
+
+[Maïs :]{.underline} Nous avons un R² faible (0.171), ce qui veut dire
+que la droite ajustée explique peu les variations du maïs. Nous avons
+une p-value non significative (0.0561) qui suggère que le maïs a peu
+d'impact sur le portefeuille.
+
+Nous pouvons également voir via les équations des droites que les 3 x
+sont négatifs, nous avons donc une baisse du cours de ces matières
+premières sur la période Covid. Ces baisses étant toutefois moins
+marquées que durant la période précédente.
+
+### 2.1.3 Comparaison par période : Ukraine
+
+#### a) Création des graphiques pour la période Ukraine (mars 2022)
+
+[Courbe du cuivre :]{.underline}
+
+```{r}
+ggtrendline(Tp_Cooper_Ukraine, Cooper_Data_Ukraine, linecolor = "blue") + 
+  geom_line(aes(Tp_Cooper_Ukraine, Cooper_Data_Ukraine)) + 
+  labs(title = "Tendance cours du cuivre période Ukraine", 
+       y="Cours cuivre (dollars US)", 
+       x="Période")
+```
+
+[Courbe du gaz naturel :]{.underline}
+
+```{r}
+ggtrendline(Tp_Gaz_Ukraine, Gaz_Data_Ukraine, linecolor = "blue") + 
+  geom_line(aes(Tp_Gaz_Ukraine, Gaz_Data_Ukraine)) + 
+  labs(title = "Tendance cours du gaz naturel période Ukraine", 
+       y="Cours du gaz (dollars US)", 
+       x="Période")
+```
+
+[Courbe du maïs :]{.underline}
+
+```{r}
+ggtrendline(Tp_Corn_Ukraine, Corn_Data_Ukraine, linecolor = "blue") + 
+  geom_line(aes(Tp_Corn_Ukraine, Corn_Data_Ukraine)) + 
+  labs(title = "Tendance cours du maïs période Ukraine", 
+       y="Cours du maïs (dollars US)", 
+       x="Période")
+```
+
+#### b) Comparaison du cours des 3 matières premières sur la période Ukraine
+
+| Nom de la matière première | Equation de droite  | R²     | P-value     |
+|----------------------------|---------------------|--------|-------------|
+| Cuivre                     | y = 0.00108x - 15.9 | 0.0109 | p = 0.643   |
+| Gaz Naturel                | y = 0.0314x - 593   | 0.649  | p \< 0.0001 |
+| Maïs                       | y = -0.123x +3087   | 0.0106 | p = 0.649   |
+
+[Cuivre :]{.underline} Nous avons un R² très faible (0.0109), ce qui
+veut dire que la droite ajustée explique peu les variations du cuivre.
+Nous avons une p-value significative (0.643) qui suggère que le cuivre a
+peu d'impact sur le portefeuille.
+
+[Gaz naturel]{.underline} : Nous avons un R² élevé (0.649), ce qui veut
+dire que la droite ajustée explique les variations du gaz naturel. Nous
+avons une p-value très significative (p \< 0.0001) qui suggère que gaz
+naturel a une forte corrélation avec le portefeuille.
+
+[Maïs :]{.underline} Nous avons un R² très faible (0.0106), ce qui veut
+dire que la droite ajustée explique peu les variations du maïs. Nous
+avons une p-value non significative (0.649) qui suggère que le maïs a
+peu d'impact sur le portefeuille.
+
+Nous pouvons également voir via les équations de droite que le cours du
+cuivre et du gaz naturel augmentent sur cette période. Le gaz naturel
+lui étant en forte augmentation. Tandis que le cours du maïs sur cette
+période est en légère baisse.
+
+### 2.1.4 Comparaison par matière : Cuivre
+
+#### a) Création des graphiques pour le cours du cuivre (3 périodes)
+
+[Période covid :]{.underline}
+
+```{r}
+ggtrendline(Tp_Cooper_Covid, Cooper_Data_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Cooper_Covid, Cooper_Data_Covid)) + 
+  labs(title = "Tendance cours du cuivre période covid", 
+       y="Cours cuivre (dollars US)", 
+       x="Période")
+```
+
+[Période post Covid :]{.underline}
+
+```{r}
+ggtrendline(Tp_Cooper_Post_Covid, Cooper_Data_Post_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Cooper_Post_Covid, Cooper_Data_Post_Covid)) + 
+  labs(title = "Tendance cours du cuivre période post covid", 
+       y="Cours cuivre (dollars US)", 
+       x="Période")
+```
+
+[Période Ukraine :]{.underline}
+
+```{r}
+ggtrendline(Tp_Cooper_Ukraine, Cooper_Data_Ukraine, linecolor = "blue") + 
+  geom_line(aes(Tp_Cooper_Ukraine, Cooper_Data_Ukraine)) + 
+  labs(title = "Tendance cours du cuivre période Ukraine", 
+       y="Cours cuivre (dollars US)", 
+       x="Période")
+```
+
+#### b) Comparaison du cours du cuivre sur les 3 périodes
+
+| Période    | Equation de droite   | R²     | P-value     |
+|------------|----------------------|--------|-------------|
+| Covid      | y = -0.0194x + 358   | 0.869  | p \< 0.0001 |
+| Post-Covid | y = -0.00267x + 54.1 | 0.149  | p = 0.0764  |
+| Ukraine    | y = 0.00108x - 15.9  | 0.0109 | p = 0.643   |
+
+En regardant principalement les variations du cuivre sur les 3 périodes,
+nous remarquons que le cours du cuivre a baissé sur les 2 premières
+périodes (Covid, Post-Covid) tandis qu'il a monté sur la 3e période
+(Ukraine).
+
+### 2.1.5 Comparaison par matière : Gaz Naturel
+
+#### a) Création des graphiques pour le cours du gaz naturel (3 périodes)
+
+[Période covid :]{.underline}
+
+```{r}
+ggtrendline(Tp_Gaz_Covid, Gaz_Data_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Gaz_Covid, Gaz_Data_Covid)) + 
+  labs(title = "Tendance cours du gaz naturel période covid", 
+       y="Cours du gaz (dollars US)", 
+       x="Période")
+```
+
+[Période post Covid :]{.underline}
+
+```{r}
+ggtrendline(Tp_Gaz_Post_Covid, Gaz_Data_Post_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Gaz_Post_Covid, Gaz_Data_Post_Covid)) + 
+  labs(title = "Tendance cours du gaz naturel période post covid", 
+       y="Cours du gaz (dollars US)", 
+       x="Période")
+```
+
+[Période Ukraine :]{.underline}
+
+```{r}
+ggtrendline(Tp_Gaz_Ukraine, Gaz_Data_Ukraine, linecolor = "blue") + 
+  geom_line(aes(Tp_Gaz_Ukraine, Gaz_Data_Ukraine)) + 
+  labs(title = "Tendance cours du gaz naturel période Ukraine", 
+       y="Cours du gaz (dollars US)", 
+       x="Période")
+```
+
+#### b) Comparaison du cours du gaz naturel sur les 3 périodes
+
+| Période    | Equation de droite  | R²    | P-value     |
+|------------|---------------------|-------|-------------|
+| Covid      | y = -0.00766x + 142 | 0.425 | p = 0.00137 |
+| Post-Covid | y = -0.00887x + 168 | 0.582 | p \< 0.0001 |
+| Ukraine    | y = 0.0314x - 593   | 0.649 | p \< 0.0001 |
+
+En regardant principalement les variations du gaz naturel sur les 3
+périodes, nous remarquons que le cours du gaz naturel a baissé sur les 2
+premières périodes (Covid, Post-Covid) tandis qu'il a monté fortement
+sur la 3e période (Ukraine).\
+
+### 2.1.6 Comparaison par matière : Maïs
+
+#### a) Création des graphiques pour le cours du maïs (3 périodes)
+
+[Période covid :]{.underline}
+
+```{r}
+ggtrendline(Tp_Corn_Covid, Corn_Data_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Corn_Covid, Corn_Data_Covid)) + 
+  labs(title = "Tendance cours du maïs période covid", 
+       y="Cours du maïs (dollars US)", 
+       x="Période")
+```
+
+[Période post Covid :]{.underline}
+
+```{r}
+ggtrendline(Tp_Corn_Post_Covid, Corn_Data_Post_Covid, linecolor = "blue") + 
+  geom_line(aes(Tp_Corn_Post_Covid, Corn_Data_Post_Covid)) + 
+  labs(title = "Tendance cours du maïs période post covid", 
+       y="Cours du maïs (dollars US)", 
+       x="Période")
+```
+
+[Période Ukraine :]{.underline}
+
+```{r}
+ggtrendline(Tp_Corn_Ukraine, Corn_Data_Ukraine, linecolor = "blue") + 
+  geom_line(aes(Tp_Corn_Ukraine, Corn_Data_Ukraine)) + 
+  labs(title = "Tendance cours du maïs période Ukraine", 
+       y="Cours du maïs (dollars US)", 
+       x="Période")
+```
+
+#### b) Comparaison du cours du maïs sur les 3 périodes
+
+| Période    | Equation de droite | R²     | P-value     |
+|------------|--------------------|--------|-------------|
+| Covid      | y = -1.78x + 32926 | 0.772  | p \< 0.0001 |
+| Post-Covid | y = -0.294x + 6051 | 0.171  | p = 0.0561  |
+| Ukraine    | y = -0.123x + 3087 | 0.0106 | p = 0.649   |
+
+En regardant principalement les variations du maïs sur les 3 périodes,
+nous remarquons qu'il baisse de manière plus ou moins forte sur les
+trois périodes. La période Codid étant celle où la baisse a été la plus
+forte.
+
+## 2.2 Transformation des données
+
+Nous allons à présent transformer tous les cours de clôture de nos 3
+matières premières sur les 3 périodes en rendement (en %).
+
+[Transformation des données pour le cuivre :]{.underline}
+
+```{r}
+# Période Covid
+Cooper_Return_Covid <- 100*(Return.calculate(Cooper_closing_Covid))
+# Période Post Covid
+Cooper_Return_Post_Covid <- 100*(Return.calculate(Cooper_closing_Post_Covid))
+# Période Ukraine
+Cooper_Return_Ukraine <- 100*(Return.calculate(Cooper_closing_Ukraine))
+```
+
+[Transformation des données pour le gaz :]{.underline}
+
+```{r}
+# Période Covid
+Gaz_Return_Covid <- 100*(Return.calculate(Gaz_closing_Covid))
+# Période Post Covid
+Gaz_Return_Post_Covid <- 100*(Return.calculate(Gaz_closing_Post_Covid))
+# Période Ukraine
+Gaz_Return_Ukraine <- 100*(Return.calculate(Gaz_closing_Ukraine))
+```
+
+[Transformation des données pour le maïs :]{.underline}
+
+```{r}
+# Période Covid
+Corn_Return_Covid <- 100*(Return.calculate(Corn_closing_Covid))
+# Période Post Covid
+Corn_Return_Post_Covid <- 100*(Return.calculate(Corn_closing_Post_Covid))
+# Période Ukraine
+Corn_Return_Ukraine <- 100*(Return.calculate(Corn_closing_Ukraine))
+```
+
+[Suppression de la première ligne sur les périodes post-covid et Ukraine
+pour avoir 21 lignes sur tous les dataset :]{.unerline}
+
+```{r}
+# Cooper :
+Cooper_Return_Post_Covid <- na.omit(Cooper_Return_Post_Covid)
+Cooper_Return_Ukraine <- na.omit(Cooper_Return_Ukraine)
+
+# Gaz :
+Gaz_Return_Post_Covid <- na.omit(Gaz_Return_Post_Covid)
+Gaz_Return_Ukraine <- na.omit(Gaz_Return_Ukraine)
+
+# Corn :
+Corn_Return_Post_Covid <- na.omit(Corn_Return_Post_Covid)
+Corn_Return_Ukraine <- na.omit(Corn_Return_Ukraine)
+```
+
+L'uniformisation du nombre d'observation sur les dataset
+Matiere_Return_Periode nous servira principalement lors du calcul des
+ANOVA et des T-Test dans la partie 3.
+
+## 2.3 Propriétés des données
+
+### 2.3.1 Comparaison par période : Covid
+
+#### a) Calcul des indicateurs statistiques
+
+[Indicateurs statistiques du cuivre :]{.underline}
+
+```{r}
+basicStats(Cooper_Return_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Cooper_Return_Covid)
+```
+
+[Indicateurs statistiques du gaz naturel :]{.underline}
+
+```{r}
+basicStats(Gaz_Return_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Gaz_Return_Covid)
+```
+
+[Indicateurs statistiques du maïs :]{.underline}
+
+```{r}
+basicStats(Corn_Return_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Corn_Return_Covid)
+```
+
+#### b) Commentaire sur la période Covid
+
+| Indicateur               | Cuivre | Gaz Naturel | Maïs   |
+|--------------------------|--------|-------------|--------|
+| Moyenne                  | -0.897 | -0.125      | -0.451 |
+| Ecart-type               | 2.199  | 3.749       | 1.812  |
+| Minimum                  | -6.694 | -7.230      | -4.316 |
+| Maximum                  | 3.680  | 8.886       | 3.057  |
+| Coefficient de variation | 4.836  | 14.053      | 3.283  |
+
+Lors de la période du COVID, nos trois matière premières ont montré des
+tendances relativement similaires mais avec cependant quelques nuances
+distinces :
+
+-   Toutes les matières premières ont enregistré des moyennes négatives.
+    Ce qui confirme un contexte globalement baissier, particulièrement
+    pour le cuivre qui a subi la baisse la plus marquée (mean : -0.897)
+
+-   Le gaz naturel s'est montré, quant à lui, le plus volatil avec une
+    amplitude de 16.116, ainsi qu'un écart-type de 0.838. A l'opposé le
+    maïs lui, est plus contrasté et garde une amplitude de 7.7373 et un
+    écart-type de 0.405.
+
+-   Le gaz naturel a présenté les rendements les plus extrêmes, ce qui
+    indique une très forte sensibilité aux chocs de marché, alors que le
+    cuivre et le maïs ont évolués dans des plages plus modérées.
+
+Cette comparaison met en évidence la vunérabilité du gaz naturel aux
+perturbations de marché, alors que le maïs et le cuivre ont montré des
+volatilité plus modérées. (mais avec quand même des tendances baissières
+marquées)
+
+### 2.3.2 Comparaison par période : Post Covid
+
+#### a) Calcul des indicateurs statistiques
+
+[Indicateurs statistiques du cuivre :]{.underline}
+
+```{r}
+basicStats(Cooper_Return_Post_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Cooper_Return_Post_Covid)
+```
+
+[Indicateurs statistiques du gaz naturel :]{.underline}
+
+```{r}
+basicStats(Gaz_Return_Post_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+    stat.desc(Gaz_Return_Post_Covid)
+```
+
+[Indicateurs statistiques du maïs :]{.underline}
+
+```{r}
+basicStats(Corn_Return_Post_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Corn_Return_Post_Covid)
+```
+
+#### b) Commentaire sur la période Post Covid
+
+| Indicateur               | Cuivre  | Gaz Naturel | Maïs    |
+|--------------------------|---------|-------------|---------|
+| Moyenne                  | -0.1455 | -0.251      | -0.0613 |
+| Ecart-type               | 1.7632  | 2.037       | 1.5175  |
+| Maximum                  | 2.7188  | 3.140       | 2.8833  |
+| Minimum                  | -3.9008 | -4.462      | -2.5356 |
+| Coefficient de variation | 3.1090  | 4.150       | 2.3029  |
+
+Lors de la période post-COVID, nos trois matières premières ont continué
+à présenter des tendances relativement similaires mais avec quelques
+distinsctions qui se doivent d'être notées :
+
+-   Les moyennes restent négatives mais moins marquées que pendant la
+    période du COVID. Cela pourrait réfléter une éventuelle reprise
+    économique (partielle). Le maïs particulièrement se stabilise
+    légèrement
+
+-   La volatilité globale a nettement diminuée par rapport à la dernière
+    période. Le gaz reste le plus volatil (amplitude : 7.602 et
+    écart-type : 0.445) tendis que le maïs nous montre à nouveau une
+    plus grande stabilité (5.4189 et 0.3312). Le cuivre quant à lui
+    reste l'intermédiaire
+
+-   On observe aussi que les variations des rendements maximum et
+    minimum se sont resserées pour nos trois matières premières. Même si
+    le gaz garde toujours des fluctuations importantes (-4.462 à 3.140),
+    mais elles restent nettement plus modérées que pendant la période du
+    COVID.
+
+De manière générale, les marchés se normalisent progressivement avec des
+tendances baissières moins prononcées et une réduction générale de la
+volatilité.
+
+### 2.3.3 Comparaison par période : Ukraine
+
+#### a) Calcul des indicateurs statistiques
+
+[Indicateurs statistiques du cuivre :]{.underline}
+
+```{r}
+basicStats(Cooper_Return_Ukraine)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Cooper_Return_Ukraine)
+```
+
+[Indicateurs statistiques du gaz naturel :]{.underline}
+
+```{r}
+basicStats(Gaz_Return_Ukraine)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Gaz_Return_Ukraine)
+```
+
+[Indicateurs statistiques du maïs :]{.underline}
+
+```{r}
+basicStats(Corn_Return_Ukraine)
+```
+
+```{r}
+options(scipen = 999, digits = 3)
+stat.desc(Corn_Return_Ukraine)
+```
+
+#### b) Commentaire sur la période Ukraine
+
+| Indicateur               | Cuivre | Gaz Naturel | Maïs    |
+|--------------------------|--------|-------------|---------|
+| Moyenne                  | 0.173  | 1.031       | 0.0143  |
+| Ecart-type               | 1.840  | 3.488       | 2.3151  |
+| Maximum                  | 3.301  | 6.226       | 4.0851  |
+| Minimum                  | -4.200 | -6.331      | -4.7417 |
+| Coefficient de variation | 3.386  | 12.163      | 5.3597  |
+
+Lors de la période de la guerre en Ukraine, nos trois matières premières
+ont montré des dynamiques différentes par rapport aux périodes
+précédentes, avec des tendances marquantes :
+
+-   Contrairement aux périodes COVID et post-COVID, les moyennes des
+    rendements sont désormais positives pour le cuivre (0.173), le gaz
+    naturel (1.031), et presque nulles pour le maïs (0.0143). Refletant
+    sûrement une hausse généralisée des prix en raison des pertubations
+    géopolitiques (tensions sur les chaînes d'approvisionnement)
+
+-   Le gaz naturel se distingue à nouveau par une forte volatilité, avec
+    une amplitude de 12.558 et un écart-type élevé (0.761), indiquant
+    des variations significatives sûrement dues aux incertitudes
+    énergétiques. Le maïs et le cuivre présentent une volatilité plus
+    modérée mais tout de même notable (8.8268 et 7.500).
+
+-   Le gaz naturel continue d'afficher des variations extrêmes (-6.331 à
+    6.226), renforçant son caractère très sensible. Le cuivre et le maïs
+    évoluent également dans des plages larges, bien que moins
+    spectaculaires que le gaz naturel.
+
+Cette période reflète l’impact des tensions géopolitiques, avec des
+hausses globales des prix et une forte volatilité, particulièrement sur
+le gaz naturel, qui reste très sensible aux perturbations énergétiques
+mondiales. Le maïs et le cuivre montrent une résilience relative.
+
+### 2.3.4 Comparaison par matière : Cuivre
+
+#### a) Calcul des indicateurs statistiques
+
+[Indicateurs statistiques du cuivre période Covid :]{.underline}
+
+```{r}
+basicStats(Cooper_Return_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Cooper_Return_Covid)
+```
+
+[Indicateurs statistiques du cuivre période Post-Covid :]{.underline}
+
+```{r}
+basicStats(Cooper_Return_Post_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Cooper_Return_Post_Covid)
+```
+
+[Indicateurs statistiques du cuivre période Ukraine :]{.underline}
+
+```{r}
+basicStats(Cooper_Return_Ukraine)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Cooper_Return_Ukraine)
+```
+
+#### b) Commentaire sur le cuivre pour les 3 périodes
+
+| Indicateur               | Covid  | Post-Covid | Ukraine |
+|--------------------------|--------|------------|---------|
+| Moyenne                  | -0.897 | -0.1455    | 0.173   |
+| Ecart-type               | 2.199  | 1.7632     | 1.840   |
+| Maximum                  | 3.680  | 2.7188     | 3.301   |
+| Minimum                  | -6.694 | -3.9008    | -4.200  |
+| Coefficient de variation | 4.836  | 3.1090     | 3.386   |
+
+Le cuivre a montré une évolution notable à travers les crises :
+
+-   La moyenne, fortement négative pendant le COVID (-0.897), elle s’est
+    atténuée post-COVID (-0.1455) et est devenue positive pendant la
+    guerre en Ukraine (0.173), signalant une reprise.
+
+-   Par rapport à la volatiltié, la plus élevée pendant le COVID
+    (amplitude : 10.374, écart-type : 0.492), elle a diminué post-COVID
+    (6.6196, 0.3848) et reste modérée pendant la guerre (7.500, 0.402).
+
+-   Et les fluctuations extrêmes se sont réduites, passant de -6.694 à
+    3.680 (COVID) à -4.200 à 3.301 (guerre).
+
+Cette progression reflète une normalisation progressive, avec une
+reprise nette lors de la guerre en Ukraine.
+
+### 2.3.5 Comparaison par matière : Gaz
+
+#### a) Calcul des indicateurs statistiques
+
+[Indicateurs statistiques du gaz naturel période Covid :]{.underline}
+
+```{r}
+basicStats(Gaz_Return_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Gaz_Return_Covid)
+```
+
+[Indicateurs statistiques du gaz naturel période Post-Covid
+:]{.underline}
+
+```{r}
+basicStats(Gaz_Return_Post_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Gaz_Return_Post_Covid)
+```
+
+[Indicateurs statistiques du gaz naturel période Ukraine :]{.underline}
+
+```{r}
+basicStats(Gaz_Return_Ukraine)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Gaz_Return_Ukraine)
+```
+
+#### b) Commentaire sur le gaz naturel pour les 3 périodes
+
+| Indicateur               | Covid  | Post-Covid | Ukraine |
+|--------------------------|--------|------------|---------|
+| Moyenne                  | -0.125 | -0.251     | 1.031   |
+| Ecart-type               | 3.749  | 2.037      | 3.488   |
+| Maximum                  | 8.886  | 3.140      | 6.226   |
+| Minimum                  | -7.230 | -4.462     | -6.331  |
+| Coefficient de variation | 14.053 | 2.037      | 3.488   |
+
+Le gaz naturel a connu une dynamique marquée par une volatilité élevée
+sur les trois périodes :
+
+-   La moyenne, proche de zéro pendant le COVID (-0.125), est restée
+    légèrement négative post-COVID (-0.251) avant de devenir nettement
+    positive lors de la guerre en Ukraine (1.031), reflétant une forte
+    reprise liée aux tensions énergétiques.
+
+-   En termes de volatilité, elle était élevée pendant le COVID
+    (amplitude : 16.116, écart-type : 0.838) et s’est modérée post-COVID
+    (7.602, 0.445) avant de repartir à la hausse pendant la guerre
+    (12.558, 0.761), témoignant de l’impact des perturbations
+    géopolitiques.
+
+-   Les fluctuations extrêmes ont suivi une trajectoire similaire : de
+    -7.230 à 8.886 (COVID), elles se sont resserrées post-COVID (-4.462
+    à 3.140) pour s’élargir de nouveau pendant la guerre (-6.331 à
+    6.226).
+
+Ces variations traduisent une grande sensibilité du gaz naturel aux
+crises, particulièrement en période de tensions géopolitiques.
+
+### 2.3.6 Comparaison par matière : Maïs
+
+#### a) Calcul des indicateurs statistiques
+
+[Indicateurs statistiques du Maïs période Covid :]{.underline}
+
+```{r}
+basicStats(Corn_Return_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Corn_Return_Covid)
+```
+
+[Indicateurs statistiques du maïs période Post-Covid :]{.underline}
+
+```{r}
+basicStats(Corn_Return_Post_Covid)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Corn_Return_Post_Covid)
+```
+
+[Indicateurs statistiques du maïs période Ukraine :]{.underline}
+
+```{r}
+basicStats(Corn_Return_Ukraine)
+```
+
+```{r}
+options(scipen = 999, digits = 3) 
+stat.desc(Corn_Return_Ukraine)
+```
+
+#### b) Commentaire sur le maïs pour les 3 périodes
+
+| Indicateur               | Covid  | Post-Covid | Ukraine |
+|--------------------------|--------|------------|---------|
+| Moyenne                  | -0.451 | -0.0613    | 0.0143  |
+| Ecart-type               | 1.812  | 1.5175     | 2.3151  |
+| Maximum                  | 3.057  | 2.8833     | 4.0851  |
+| Minimum                  | -4.316 | -2.5356    | -4.7417 |
+| Coefficient de variation | 1.812  | 2.3029     | 5.3597  |
+
+Le maïs a montré une relative stabilité à travers les crises, malgré
+quelques variations notables :
+
+-   Sa moyenne, initialement négative pendant le COVID (-0.451), s’est
+    stabilisée post-COVID (-0.0613) avant de devenir légèrement positive
+    pendant la guerre en Ukraine (0.0143), traduisant une adaptation aux
+    conditions de marché.
+
+-   Sa volatilité, modérée pendant le COVID (amplitude : 7.373,
+    écart-type : 0.405), a légèrement diminué post-COVID (5.4189,
+    0.3312) avant d’augmenter pendant la guerre (8.8268, 0.5052),
+    probablement en raison des perturbations des chaînes
+    d’approvisionnement agricoles.
+
+-   Les fluctuations extrêmes ont suivi une tendance similaire : de
+    -4.316 à 3.057 (COVID), elles se sont réduites post-COVID (-2.5356 à
+    2.8833) puis élargies pendant la guerre (-4.7417 à 4.0851).
+
+Ces évolutions montrent une résilience du maïs face aux crises, tout en
+restant exposé aux perturbations agricoles et logistiques.
+
+## 3. Analyse des différences
+
+### 3.1 Création des dataset
+
+Dans le cadre de la réalisation des ANOVA, nous devons modifier nos
+dataset afin de pouvoir comparer :
+
+-   Les 3 actifs sur une même période : 1 colonne avec le nom de l'actif
+    (commodity), 1 colonne avec le return journalier (returns)
+
+-   A travers les 3 périodes par actif : 1 colonne avec le nom de la
+    période (period) et 1 colonne avec le return journalier
+    (return_matiere)
+
+#### 3.1.1 Dataset période Covid
+
+```{r}
+# Créer un dataset bis pour chaque matière
+Cooper_Return_Covid_q3 <- Cooper_Return_Covid
+Gaz_Return_Covid_q3 <- Gaz_Return_Covid
+Corn_Return_Covid_q3 <- Corn_Return_Covid
+
+# Ajouter une colonne "commodity" dans chaque dataset
+Cooper_Return_Covid_q3$commodity <- "Cooper"
+Gaz_Return_Covid_q3$commodity <- "Gaz"
+Corn_Return_Covid_q3$commodity <- "Corn"
+
+```
+
+```{r}
+# Combinaison des données
+All_Return_Covid <- data.frame(
+  commodity = c(Cooper_Return_Covid_q3$commodity,
+                Gaz_Return_Covid_q3$commodity,
+                Corn_Return_Covid_q3$commodity),
+  returns = c(Cooper_Return_Covid_q3$HG.F.Close,
+              Gaz_Return_Covid_q3$NG.F.Close,
+              Corn_Return_Covid_q3$ZC.F.Close)
+)
+```
+
+```{r}
+# Suppression des lignes vides
+All_Return_Covid <- na.omit(All_Return_Covid)
+```
+
+#### 3.1.2 Dataset période Post-Covid
+
+```{r}
+# Créer un dataset bis pour chaque matière
+Cooper_Return_Post_Covid_q3 <- Cooper_Return_Post_Covid
+Gaz_Return_Post_Covid_q3 <- Gaz_Return_Post_Covid
+Corn_Return_Post_Covid_q3 <- Corn_Return_Post_Covid
+
+# Ajouter une colonne "commodity" dans chaque dataset
+Cooper_Return_Post_Covid_q3$commodity <- "Cooper"
+Gaz_Return_Post_Covid_q3$commodity <- "Gaz"
+Corn_Return_Post_Covid_q3$commodity <- "Corn"
+
+```
+
+```{r}
+# Combinaison des données
+All_Return_Post_Covid <- data.frame(
+  commodity = c(Cooper_Return_Post_Covid_q3$commodity,
+                Gaz_Return_Post_Covid_q3$commodity,
+                Corn_Return_Post_Covid_q3$commodity),
+  returns = c(Cooper_Return_Post_Covid_q3$HG.F.Close,
+              Gaz_Return_Post_Covid_q3$NG.F.Close,
+              Corn_Return_Post_Covid_q3$ZC.F.Close)
+)
+```
+
+```{r}
+# Suppression des lignes vides
+All_Return_Post_Covid <- na.omit(All_Return_Post_Covid)
+```
+
+#### 3.1.3 Dataset période Ukraine
+
+```{r}
+# Créer un dataset bis pour chaque matière
+Cooper_Return_Ukraine_q3 <- Cooper_Return_Ukraine
+Gaz_Return_Ukraine_q3 <- Gaz_Return_Ukraine
+Corn_Return_Ukraine_q3 <- Corn_Return_Ukraine
+
+# Ajouter une colonne "commodity" dans chaque dataset
+Cooper_Return_Ukraine_q3$commodity <- "Cooper"
+Gaz_Return_Ukraine_q3$commodity <- "Gaz"
+Corn_Return_Ukraine_q3$commodity <- "Corn"
+
+```
+
+```{r}
+# Combinaison des données
+All_Return_Ukraine <- data.frame(
+  commodity = c(Cooper_Return_Ukraine_q3$commodity,
+                Gaz_Return_Ukraine_q3$commodity,
+                Corn_Return_Ukraine_q3$commodity),
+  returns = c(Cooper_Return_Ukraine_q3$HG.F.Close,
+              Gaz_Return_Ukraine_q3$NG.F.Close,
+              Corn_Return_Ukraine_q3$ZC.F.Close)
+)
+```
+
+```{r}
+# Suppression des lignes vides
+All_Return_Ukraine <- na.omit(All_Return_Ukraine)
+```
+
+#### 3.1.4 Dataset Cooper
+
+```{r}
+# Ajouter une colonne "period" dans chaque dataset
+Cooper_Return_Covid_q3$period <- "2020"
+Cooper_Return_Post_Covid_q3$period <- "2021"
+Cooper_Return_Ukraine_q3$period <- "2022"
+
+```
+
+```{r}
+# Combinaison des données
+All_Return_Cooper <- data.frame(
+  period = c(Cooper_Return_Covid_q3$period,
+                Cooper_Return_Post_Covid_q3$period,
+                Cooper_Return_Ukraine_q3$period),
+  return_cooper = c(Cooper_Return_Covid_q3$HG.F.Close,
+              Cooper_Return_Post_Covid_q3$HG.F.Close,
+              Cooper_Return_Ukraine_q3$HG.F.Close)
+)
+```
+
+```{r}
+# Suppression des lignes vides
+All_Return_Cooper <- na.omit(All_Return_Cooper)
+```
+
+#### 3.1.5 Dataset Gaz
+
+```{r}
+# Ajouter une colonne "period" dans chaque dataset
+Gaz_Return_Covid_q3$period <- "2020"
+Gaz_Return_Post_Covid_q3$period <- "2021"
+Gaz_Return_Ukraine_q3$period <- "2022"
+
+```
+
+```{r}
+# Combinaison des données
+All_Return_Gaz <- data.frame(
+  period = c(Gaz_Return_Covid_q3$period,
+                Gaz_Return_Post_Covid_q3$period,
+                Gaz_Return_Ukraine_q3$period),
+  return_gaz = c(Gaz_Return_Covid_q3$NG.F.Close,
+              Gaz_Return_Post_Covid_q3$NG.F.Close,
+              Gaz_Return_Ukraine_q3$NG.F.Close)
+)
+```
+
+```{r}
+# Suppression des lignes vides
+All_Return_Gaz <- na.omit(All_Return_Gaz)
+```
+
+#### 3.1.6 Dataset Corn
+
+```{r}
+# Ajouter une colonne "period" dans chaque dataset
+Corn_Return_Covid_q3$period <- "2020"
+Corn_Return_Post_Covid_q3$period <- "2021"
+Corn_Return_Ukraine_q3$period <- "2022"
+
+```
+
+```{r}
+# Combinaison des données
+All_Return_Corn <- data.frame(
+  period = c(Corn_Return_Covid_q3$period,
+                Corn_Return_Post_Covid_q3$period,
+                Corn_Return_Ukraine_q3$period),
+  return_corn = c(Corn_Return_Covid_q3$ZC.F.Close,
+              Corn_Return_Post_Covid_q3$ZC.F.Close,
+              Corn_Return_Ukraine_q3$ZC.F.Close)
+)
+```
+
+```{r}
+# Suppression des lignes vides
+All_Return_Corn <- na.omit(All_Return_Corn)
+```
+
+### 3.2 ANOVA
+
+#### 3.2.1 ANOVA sur une même période : COVID
+
+```{r}
+res_anova_Covid <- aov(returns ~ commodity, data = All_Return_Covid)
+summary(res_anova_Covid)
+```
+
+La Pr(\>F) de 0.67, bien supérieure au seuil de 0.05, indique qu’il n’y
+a pas de différence significative entre les moyennes des rendements des
+trois matières premières pendant la période COVID.
+
+Les variations sont probablement dues au hasard.
+
+#### 3.2.2 ANOVA sur une même période : Post-COVID
+
+```{r}
+res_anova_Post_Covid <- aov(returns ~ commodity, data = All_Return_Post_Covid)
+summary(res_anova_Post_Covid)
+```
+
+La Pr(\>F) de 0.94, très largement supérieure au seuil de 0.05, indique
+qu’il n’existe aucune différence significative entre les moyennes des
+rendements des trois matières premières durant la période post-COVID.
+
+Les variations observées sont aléatoires.
+
+#### 3.2.3 ANOVA sur une même période : Ukraine
+
+```{r}
+res_anova_Ukraine <- aov(returns ~ commodity, data = All_Return_Ukraine)
+summary(res_anova_Ukraine)
+```
+
+La Pr(\>F) de 0.41, bien au-dessus du seuil de 0.05, montre qu’il n’y a
+pas de différence significative entre les moyennes des rendements des
+trois matières premières pendant la période de la guerre en Ukraine. Les
+variations constatées semblent aléatoires.
+
+#### 3.2.4 ANOVA sur une même matière : Cuivre
+
+```{r}
+res_anova_Cooper <- aov(return_cooper ~ period, data = All_Return_Cooper)
+summary(res_anova_Cooper)
+
+```
+
+La Pr(\>F) de 0.2, supérieure au seuil de 0.05, indique qu’il n’y a pas
+de différence significative entre les moyennes des rendements du cuivre
+à travers les trois périodes.
+
+#### 3.2.5 ANOVA sur une même matière : Gaz
+
+```{r}
+res_anova_Gaz <- aov(return_gaz ~ period, data = All_Return_Gaz)
+summary(res_anova_Gaz)
+
+```
+
+La Pr(\>F) de 0.36, bien supérieure au seuil de 0.05, montre qu’il
+n’existe pas de différence significative entre les moyennes des
+rendements du gaz naturel sur les trois périodes.
+
+#### 3.2.6 ANOVA sur une même matière : Maïs
+
+```{r}
+res_anova_Corn <- aov(return_corn ~ period, data = All_Return_Corn)
+summary(res_anova_Corn)
+
+```
+
+La Pr(\>F) de 0.71, bien au-dessus du seuil de 0.05, indique qu’il n’y a
+pas de différence significative entre les moyennes des rendements du
+maïs sur les trois périodes.
+
+#### 3.2.7 Synthèse des ANOVA
+
+Réaliser un tableau récap des p-value de toutes les ANOVA et conclure
+cette partie sur une interprétation globale des résultats de la partie 3
+(aidera pour le choix des modèles dans la partie 5)
+
+| ANOVA                      | F value | Pr(\<F) |
+|----------------------------|---------|---------|
+| Par matière sur COVID      | 0.41    | 0.67    |
+| Par matière sur post-COVID | 0.06    | 0.94    |
+| Par matière sur Ukraine    | 0.9     | 0.41    |
+| Par période pour Cuivre    | 1.63    | 0.2     |
+| Par période pour Gaz       | 1.04    | 0.36    |
+| Par période pour Maïs      | 0.35    | 0.71    |
+
+Les ANOVA révèlent que ni les matières premières entre elles, ni les
+périodes entre elles, ne montrent de différences significatives dans
+leurs rendements moyens.
+
+Cela suggère que les variations observées peuvent être attribuées au
+hasard ou à des fluctuations normales des marchés.
+
+### 3.3 T-TEST
+
+Les ANOVA testent les différences entre plusieurs groupes en une seule
+analyse, mais elles ne montrent pas quels groupes diffèrent (si une
+différence significative avait été détectée).
+
+Les t-tests, en revanche, permettent de comparer directement deux
+groupes spécifiques, ce qui peut révéler des nuances masquées dans une
+ANOVA.
+
+Dans notre cas les ANOVA n’ont pas montré de différences significatives,
+les t-tests peuvent peut-être fournir des informations utiles, surtout
+si les échantillons présentent des variations subtiles qui nécessitent
+une approche ciblée.
+
+Les t-test vont nous offrir une analyse complémentaire aux ANOVA.
+
+#### 3.3.1 : Comparaisons entre matières premières sur la période COVID
+
+a)  Cuivre / Gaz
+
+```{r}
+t_test_cuivre_gaz <- t.test(All_Return_Covid$returns[All_Return_Covid$commodity == "Cooper"],
+                            All_Return_Covid$returns[All_Return_Covid$commodity == "Gaz"],
+                            alternative = "two.sided", var.equal = FALSE)
+print(t_test_cuivre_gaz)
+```
+
+Les rendements moyens sont proches et leurs variations peuvent être
+attribuées au hasard
+
+b)  Cuivre / Maïs
+
+```{r}
+t_test_cuivre_mais <- t.test(All_Return_Covid$returns[All_Return_Covid$commodity == "Cooper"],
+                              All_Return_Covid$returns[All_Return_Covid$commodity == "Corn"],
+                              alternative = "two.sided", var.equal = FALSE)
+print(t_test_cuivre_mais)
+```
+
+Les résultats indiquent une homogénéité entre ces deux matières
+premières
+
+c)  Gaz / Maïs
+
+```{r}
+t_test_gaz_mais <- t.test(All_Return_Covid$returns[All_Return_Covid$commodity == "Gaz"],
+                           All_Return_Covid$returns[All_Return_Covid$commodity == "Corn"],
+                           alternative = "two.sided", var.equal = FALSE)
+print(t_test_gaz_mais)
+```
+
+Les variations semblent aléatoires.
+
+#### 3.3.2 : Comparaisons entre matières premières sur la période post-COVID
+
+a)  Cuivre / Gaz
+
+```{r}
+t_test_cuivre_gaz_post <- t.test(All_Return_Post_Covid$returns[All_Return_Post_Covid$commodity == "Cooper"],
+                                 All_Return_Post_Covid$returns[All_Return_Post_Covid$commodity == "Gaz"],
+                                 alternative = "two.sided", var.equal = FALSE)
+print(t_test_cuivre_gaz_post)
+```
+
+Une homogénéité entre les deux actifs est confirmée.
+
+b)  Cuivre / Maïs
+
+```{r}
+t_test_cuivre_mais_post <- t.test(All_Return_Post_Covid$returns[All_Return_Post_Covid$commodity == "Cooper"],
+                                  All_Return_Post_Covid$returns[All_Return_Post_Covid$commodity == "Corn"],
+                                  alternative = "two.sided", var.equal = FALSE)
+print(t_test_cuivre_mais_post)
+```
+
+Les deux matières premières montrent une forte similitude.
+
+c)  Gaz / Maïs
+
+```{r}
+t_test_gaz_mais_post <- t.test(All_Return_Post_Covid$returns[All_Return_Post_Covid$commodity == "Gaz"],
+                               All_Return_Post_Covid$returns[All_Return_Post_Covid$commodity == "Corn"],
+                               alternative = "two.sided", var.equal = FALSE)
+print(t_test_gaz_mais_post)
+```
+
+Aucune matière première ne se distingue dans cette comparaison.
+
+#### 3.3.3 : Comparaisons entre matières premières sur la période Ukraine
+
+a)  Cuivre / Gaz
+
+```{r}
+t_test_cuivre_gaz_ukraine <- t.test(All_Return_Ukraine$returns[All_Return_Ukraine$commodity == "Cooper"],
+                                    All_Return_Ukraine$returns[All_Return_Ukraine$commodity == "Gaz"],
+                                    alternative = "two.sided", var.equal = FALSE)
+print(t_test_cuivre_gaz_ukraine)
+```
+
+Les variations pourraient être dues à des fluctuations aléatoires
+
+b)  Cuivre / Maïs
+
+```{r}
+t_test_cuivre_mais_ukraine <- t.test(All_Return_Ukraine$returns[All_Return_Ukraine$commodity == "Cooper"],
+                                     All_Return_Ukraine$returns[All_Return_Ukraine$commodity == "Corn"],
+                                     alternative = "two.sided", var.equal = FALSE)
+print(t_test_cuivre_mais_ukraine)
+```
+
+Les rendements restent homogènes.
+
+c)  Gaz / Maïs
+
+```{r}
+t_test_gaz_mais_ukraine <- t.test(All_Return_Ukraine$returns[All_Return_Ukraine$commodity == "Gaz"],
+                                  All_Return_Ukraine$returns[All_Return_Ukraine$commodity == "Corn"],
+                                  alternative = "two.sided", var.equal = FALSE)
+print(t_test_gaz_mais_ukraine)
+```
+
+Malgré un rendement moyen plus élevé pour le gaz naturel, la différence
+n’est pas statistiquement significative.
+
+[**Synthèse :**]{.underline}
+
+Aucune des comparaisons effectuées entre les matières premières sur les
+trois périodes (COVID, post-COVID, guerre en Ukraine) n’a révélé de
+différences significatives.
+
+Les p-values sont toutes supérieures au seuil de 0.05, indiquant que les
+variations observées sont probablement aléatoires et non dues à des
+différences intrinsèques entre les matières premières.
+
+Ces résultats corroborent les conclusions des ANOVA, confirmant une
+relative homogénéité des rendements entre les matières premières sur
+chacune des périodes.
+
+#### 3.3.4 : Comparaisons entre périodes pour le Cuivre
+
+a)  Période COVID vs post-COVID
+
+```{r}
+covid_cuivre <- na.omit(All_Return_Cooper$return_cooper[All_Return_Cooper$period == "2020"])
+post_covid_cuivre <- na.omit(All_Return_Cooper$return_cooper[All_Return_Cooper$period == "2021"])
+common_length <- min(length(covid_cuivre), length(post_covid_cuivre))
+
+t_test_cuivre_covid_post <- t.test(covid_cuivre[1:common_length], post_covid_cuivre[1:common_length],
+                                   alternative = "two.sided", paired = TRUE)
+print(t_test_cuivre_covid_post)
+```
+
+b)  Période post-COVID vs Ukraine
+
+```{r}
+post_covid_cuivre <- na.omit(All_Return_Cooper$return_cooper[All_Return_Cooper$period == "2021"])
+ukraine_cuivre <- na.omit(All_Return_Cooper$return_cooper[All_Return_Cooper$period == "2022"])
+common_length <- min(length(post_covid_cuivre), length(ukraine_cuivre))
+
+t_test_cuivre_post_ukraine <- t.test(post_covid_cuivre[1:common_length], ukraine_cuivre[1:common_length],
+                                     alternative = "two.sided", paired = TRUE)
+print(t_test_cuivre_post_ukraine)
+```
+
+c)  Période COVID vs Ukraine
+
+```{r}
+covid_cuivre <- na.omit(All_Return_Cooper$return_cooper[All_Return_Cooper$period == "2020"])
+ukraine_cuivre <- na.omit(All_Return_Cooper$return_cooper[All_Return_Cooper$period == "2022"])
+common_length <- min(length(covid_cuivre), length(ukraine_cuivre))
+
+t_test_cuivre_covid_ukraine <- t.test(covid_cuivre[1:common_length], ukraine_cuivre[1:common_length],
+                                      alternative = "two.sided", paired = TRUE)
+print(t_test_cuivre_covid_ukraine)
+```
+
+#### 3.3.5 : Comparaisons entre périodes pour le Gaz
+
+a)  Période COVID vs post-COVID
+
+```{r}
+covid_gaz <- na.omit(All_Return_Gaz$return_gaz[All_Return_Gaz$period == "2020"])
+post_covid_gaz <- na.omit(All_Return_Gaz$return_gaz[All_Return_Gaz$period == "2021"])
+common_length <- min(length(covid_gaz), length(post_covid_gaz))
+
+t_test_gaz_covid_post <- t.test(covid_gaz[1:common_length], post_covid_gaz[1:common_length],
+                                alternative = "two.sided", paired = TRUE)
+print(t_test_gaz_covid_post)
+```
+
+b)  Période post-COVID vs Ukraine
+
+```{r}
+post_covid_gaz <- na.omit(All_Return_Gaz$return_gaz[All_Return_Gaz$period == "2021"])
+ukraine_gaz <- na.omit(All_Return_Gaz$return_gaz[All_Return_Gaz$period == "2022"])
+common_length <- min(length(post_covid_gaz), length(ukraine_gaz))
+
+t_test_gaz_post_ukraine <- t.test(post_covid_gaz[1:common_length], ukraine_gaz[1:common_length],
+                                  alternative = "two.sided", paired = TRUE)
+print(t_test_gaz_post_ukraine)
+```
+
+c)  Période COVID vs Ukraine
+
+```{r}
+covid_gaz <- na.omit(All_Return_Gaz$return_gaz[All_Return_Gaz$period == "2020"])
+ukraine_gaz <- na.omit(All_Return_Gaz$return_gaz[All_Return_Gaz$period == "2022"])
+common_length <- min(length(covid_gaz), length(ukraine_gaz))
+
+t_test_gaz_covid_ukraine <- t.test(covid_gaz[1:common_length], ukraine_gaz[1:common_length],
+                                   alternative = "two.sided", paired = TRUE)
+print(t_test_gaz_covid_ukraine)
+```
+
+#### 3.3.6 : Comparaisons entre périodes pour le Maïs
+
+a)  Période COVID vs post-COVID
+
+```{r}
+covid_mais <- na.omit(All_Return_Corn$return_corn[All_Return_Corn$period == "2020"])
+post_covid_mais <- na.omit(All_Return_Corn$return_corn[All_Return_Corn$period == "2021"])
+common_length <- min(length(covid_mais), length(post_covid_mais))
+
+t_test_mais_covid_post <- t.test(covid_mais[1:common_length], post_covid_mais[1:common_length],
+                                 alternative = "two.sided", paired = TRUE)
+print(t_test_mais_covid_post)
+```
+
+b)  Période post-COVID vs Ukraine
+
+```{r}
+post_covid_mais <- na.omit(All_Return_Corn$return_corn[All_Return_Corn$period == "2021"])
+ukraine_mais <- na.omit(All_Return_Corn$return_corn[All_Return_Corn$period == "2022"])
+common_length <- min(length(post_covid_mais), length(ukraine_mais))
+
+t_test_mais_post_ukraine <- t.test(post_covid_mais[1:common_length], ukraine_mais[1:common_length],
+                                   alternative = "two.sided", paired = TRUE)
+print(t_test_mais_post_ukraine)
+```
+
+c)  Période COVID vs Ukraine
+
+```{r}
+covid_mais <- na.omit(All_Return_Corn$return_corn[All_Return_Corn$period == "2020"])
+ukraine_mais <- na.omit(All_Return_Corn$return_corn[All_Return_Corn$period == "2022"])
+common_length <- min(length(covid_mais), length(ukraine_mais))
+
+t_test_mais_covid_ukraine <- t.test(covid_mais[1:common_length], ukraine_mais[1:common_length],
+                                    alternative = "two.sided", paired = TRUE)
+print(t_test_mais_covid_ukraine)
+```
+
+**Synthèse :**
+
+Aucune des comparaisons n’a produit une p-value inférieure à 0.05,
+indiquant que les rendements moyens entre périodes sont statistiquement
+similaires pour le cuivre, le gaz et le maïs.
+
+Il y a cependant quelques tendances uintéressantes à relever pour :
+
+-   Le Cuivre : période COVID vs période Ukraine (p=0.1)
+
+-   Le Gaz : période post-COVID vs période Ukraine (p=0.08)
+
+*Les t-tests confirment les conclusions des ANOVA, avec une homogénéité
+globale des rendements entre les périodes et matières premières.*
+
+### 3.4 : Synthèse ANOVA et T-TEST :
+
+1)  Les ANOVA et les t-tests montrent qu’il n’existe pas de différence
+    statistiquement significative entre les rendements moyens des
+    matières premières au sein d’une même période ou entre les
+    différentes périodes. Les p-values, largement supérieures au seuil
+    de 0.05, indiquent que les variations observées sont attribuables à
+    des fluctuations aléatoires des marchés.
+
+2)  Malgré les crises économiques et géopolitiques majeures (COVID et
+    guerre en Ukraine), aucune des matières premières n’a présenté de
+    variations significatives dans ses rendements moyens d’une période à
+    l’autre. Cela pourrait être expliqué par la diversification des
+    dynamiques d’offre et de demande des matières premières ou par la
+    résilience des marchés à ces événements.
+
+3)  Nous avons relevés deux tendances cependant, ces signaux pourraient
+    refléter des ajustements spécifiques liés à des perturbations des
+    chaînes d’approvisionnement ou des fluctuations de la demande. (?)
+
+4)  L'utilisation des ANOVA et des t-tests a permis de vérifier
+    l’homogénéité des rendements tout en explorant des comparaisons
+    spécifiques.
+
+*Ces résultats renforcent l’idée que l’analyse statistique doit être
+complétée par des indicateurs économiques ou sectoriels pour mieux
+comprendre les dynamiques des marchés.*
+
+## 4. Analyse des relations
+
+Nous allons ici utiliser le prix de nos matières premières en dollars US
+et non en rendement comme dans la partie 3.
+
+### 4.1.1 Importation des données
+
+Importation des données nécéssaires depuis Yahoo Finance :
+
+-   13 Weeks Treasury Bill (\^IRX)
+
+```{r}
+# Importation des données du 13 weeks treasury bill depuis Yahoo! Finance
+TS13W_closing_Covid <- getSymbols("^IRX", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+TS13W_closing_Post_Covid <- getSymbols("^IRX", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+TS13W_closing_Ukraine <- getSymbols("^IRX", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+TS13W_closing_Covid <- data.frame(Date = index(TS13W_closing_Covid), 
+TS13W_closing = coredata(TS13W_closing_Covid))
+TS13W_closing_Post_Covid <- data.frame(Date = index(TS13W_closing_Post_Covid), TS13W_closing = coredata(TS13W_closing_Post_Covid))
+TS13W_closing_Ukraine <- data.frame(Date = index(TS13W_closing_Ukraine), TS13W_closing = coredata(TS13W_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(TS13W_closing_Covid)
+#View(TS13W_closing_Post_Covid)
+#View(TS13W_closing_Ukraine)
+```
+
+-   EUR/USD (EURUSD=X)
+
+```{r}
+# Importation des données du 13 weeks treausry bill depuis Yahoo! Finance
+EURUSD_closing_Covid <- getSymbols("EURUSD=X", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+EURUSD_closing_Post_Covid <- getSymbols("EURUSD=X", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+EURUSD_closing_Ukraine <- getSymbols("EURUSD=X", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+EURUSD_closing_Covid <- data.frame(Date = index(EURUSD_closing_Covid), 
+EURUSD_closing = coredata(EURUSD_closing_Covid))
+EURUSD_closing_Post_Covid <- data.frame(Date = index(EURUSD_closing_Post_Covid), EURUSD_closing = coredata(EURUSD_closing_Post_Covid))
+EURUSD_closing_Ukraine <- data.frame(Date = index(EURUSD_closing_Ukraine), EURUSD_closing = coredata(EURUSD_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(EURUSD_closing_Covid)
+#View(EURUSD_closing_Post_Covid)
+#View(EURUSD_closing_Ukraine)
+```
+
+-   NASDAQ Composite (\^IXIC)
+
+```{r}
+# Importation des données du 13 weeks treausry bill depuis Yahoo! Finance
+NASDAQ_closing_Covid <- getSymbols("^IXIC", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+NASDAQ_closing_Post_Covid <- getSymbols("^IXIC", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+NASDAQ_closing_Ukraine <- getSymbols("^IXIC", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+NASDAQ_closing_Covid <- data.frame(Date = index(NASDAQ_closing_Covid), 
+NASDAQ_closing = coredata(NASDAQ_closing_Covid))
+NASDAQ_closing_Post_Covid <- data.frame(Date = index(NASDAQ_closing_Post_Covid), NASDAQ_closing = coredata(NASDAQ_closing_Post_Covid))
+NASDAQ_closing_Ukraine <- data.frame(Date = index(NASDAQ_closing_Ukraine), NASDAQ_closing = coredata(NASDAQ_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(NASDAQ_closing_Covid)
+#View(NASDAQ_closing_Post_Covid)
+#View(NASDAQ_closing_Ukraine)
+```
+
+-   CBOE Volatility Index (\^VIX) : indice de volatilité du marché
+    américain
+
+```{r}
+# Importation des données du 13 weeks treausry bill depuis Yahoo! Finance
+CBOE_closing_Covid <- getSymbols("^VIX", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+CBOE_closing_Post_Covid <- getSymbols("^VIX", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+CBOE_closing_Ukraine <- getSymbols("^VIX", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+CBOE_closing_Covid <- data.frame(Date = index(CBOE_closing_Covid), 
+CBOE_closing = coredata(CBOE_closing_Covid))
+CBOE_closing_Post_Covid <- data.frame(Date = index(CBOE_closing_Post_Covid), CBOE_closing = coredata(CBOE_closing_Post_Covid))
+CBOE_closing_Ukraine <- data.frame(Date = index(CBOE_closing_Ukraine), 
+CBOE_closing = coredata(CBOE_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(CBOE_closing_Covid)
+#View(CBOE_closing_Post_Covid)
+#View(CBOE_closing_Ukraine)
+```
+
+-   Wheat (KE=F) : cours du blé
+
+```{r}
+# Importation des données du blé depuis Yahoo! Finance
+Wheat_closing_Covid <- getSymbols("KE=F", src = "yahoo", auto.assign = FALSE, from="2020-03-02", to="2020-03-31")[,4]
+Wheat_closing_Post_Covid <- getSymbols("KE=F", src = "yahoo", auto.assign = FALSE, from="2021-03-01", to="2021-03-31")[,4]
+Wheat_closing_Ukraine <- getSymbols("KE=F", src = "yahoo", auto.assign = FALSE, from="2022-03-01", to="2022-03-31")[,4]
+
+# Ajout de titres aux 2 colonnes de chacun des 3 imports
+Wheat_closing_Covid <- data.frame(Date = index(Wheat_closing_Covid), 
+Wheat_closing = coredata(Wheat_closing_Covid))
+Wheat_closing_Post_Covid <- data.frame(Date = index(Wheat_closing_Post_Covid), 
+Wheat_closing = coredata(Wheat_closing_Post_Covid))
+Wheat_closing_Ukraine <- data.frame(Date = index(Wheat_closing_Ukraine), 
+Wheat_closing = coredata(Wheat_closing_Ukraine))
+
+# Check que tout est ok pour les 3 imports
+#View(Wheat_closing_Covid)
+#View(Wheat_closing_Post_Covid)
+#View(Wheat_closing_Ukraine)
+```
+
+### 4.1.2 Analyse de corrélation
+
+Compilation des données pour l'analyse de la corrélation
+
+```{R}
+# Création des nouveaux environnements 
+Corr_Data_Covid <- new.env()
+Corr_Data_Post_Covid <- new.env()
+Corr_Data_Ukraine <- new.env()
+
+# Importation des données 
+## période COVID
+getSymbols("HG=F;NG=F;ZC=F;^IXIC;^VIX;EURUSD=X;^IRX;KE=F",
+           src = "yahoo", env = Corr_Data_Covid, from = "2020-03-02", to = "2020-03-31")
+## période post-COVID
+getSymbols("HG=F;NG=F;ZC=F;^IXIC;^VIX;EURUSD=X;^IRX;KE=F", 
+           src = "yahoo", env = Corr_Data_Post_Covid, from = "2021-03-01", to = "2021-03-31")
+## période Ukraine
+getSymbols("HG=F;NG=F;ZC=F;^IXIC;^VIX;EURUSD=X;^IRX;KE=F", 
+           src = "yahoo", env = Corr_Data_Ukraine, from = "2022-03-01", to = "2022-03-31")
+
+# Extration des prix de clôture 
+## période COVID
+Close_Data_Covid <- do.call(merge, eapply(Corr_Data_Covid, Cl))
+## période post COVID
+Close_Data_Post_Covid <- do.call(merge, eapply(Corr_Data_Post_Covid, Cl))
+## période Ukraine
+Close_Data_Ukraine <- do.call(merge, eapply(Corr_Data_Ukraine, Cl))
+
+# Suppression des données manquantes 
+# période COVID
+Clean_Data_Covid <- na.omit(Close_Data_Covid)
+# période Post COVID
+Clean_Data_Post_Covid <- na.omit(Close_Data_Post_Covid)
+# période Ukraine
+Clean_Data_Ukraine <- na.omit(Close_Data_Ukraine)
+
+
+# Visualisation de la base de données
+#View(Clean_Data_Covid)
+#View(Clean_Data_Post_Covid)
+#View(Clean_Data_Ukraine)
+```
+
+#### 4.1.2.1 Période Covid
+
+Analyse de la corrélation
+
+```{r}
+# recherche du coefficient de corrélation 
+options(scipen = 999, digits = 3)
+cor(Clean_Data_Covid)
+```
+
+Verification de la significativité des p-values des différentes
+corrélations
+
+```{r}
+corrplot.mixed(cor(Clean_Data_Covid), p.mat = cor.mtest(Clean_Data_Covid)$p)
+```
+
+[**Commentaire :**]{.underline}
+
+Nous voyons que les variables financières sont pour la plupart fortement
+correlées avec nos matières premières durant la période COVID.
+
+Le **cuivre (HG.F)** est correlé avec :
+
+-   Le NASDAQ Composite (IXIC) : corrélation de 0.793.
+-   Les Bons du trésor américain à 13 semaines (IRX) : corrélation de
+    0.870.
+-   Le Taux de change EUR/USD (EURUSD=X) : corrélation de 0.755.
+-   L'Indice de volatilité du marché américain (VIX) : corrélation
+    négative significative de -0.671.
+
+Le **Gaz naturel (NG.F)** est correlé avec :
+
+-   Le NASDAQ Composite (IXIC) : corrélation de 0.502.
+-   Le Taux de change EUR/USD (EURUSD=X) : corrélation de 0.825.
+-   Les Bons du trésor américain à 13 semaines (IRX) : corrélation de
+    0.585.
+-   Le Cuivre (HG.F) : corrélation forte de 0.807.
+
+Le **Maïs (ZC=F)** est correlé avec :
+
+-   Le NASDAQ Composite (IXIC) : corrélation de 0.823.
+-   Le Cuivre (HG.F) : corrélation très forte de 0.962.
+-   Les Bons du trésor américain à 13 semaines (IRX) : corrélation de
+    0.814.
+-   Le Taux de change EUR/USD (EURUSD=X) : corrélation de 0.693.
+-   L'indice de volatilité du marché américain (VIX) : corrélation
+    négative notable de -0.756.
+
+Le **blé (KE.F)** montre des corrélations négatives avec la majorité des
+autres facteurs :
+
+-   Corrélation négative forte avec le taux de change EUR/USD (EURUSD=X)
+    (-0.782).
+-   Corrélation négative avec le cuivre (HG.F) (-0.718) et le maïs
+    (ZC.F) (-0.585).
+-   Pas de corrélation notable avec le NASDAQ Composite (IXIC) ou le
+    VIX.
+
+*Synthèse :*
+
+NASDAQ Composite (IXIC), IRX, et EUR/USD demeurent les principaux
+facteurs influençant nos matières premières (cuivre, gaz naturel, et
+maïs).
+
+L’indice de volatilité (VIX) a une corrélation négative significative
+avec le cuivre et le maïs, ce qui peut refléter l’impact des
+incertitudes sur ces marchés.
+
+Les matières premières (cuivre, maïs, et gaz naturel) montrent une forte
+interdépendance, particulièrement entre le cuivre et le maïs
+(corrélation de 0.962).
+
+#### 4.1.2.2 Période Post-Covid
+
+Analyse de la corrélation
+
+```{r}
+# recherche du coefficient de corrélation 
+options(scipen = 999, digits = 3)
+cor(Clean_Data_Post_Covid)
+```
+
+Verification de la significativité des p-values des différentes
+corrélations
+
+```{r}
+corrplot.mixed(cor(Clean_Data_Post_Covid), p.mat = cor.mtest(Clean_Data_Post_Covid)$p)
+```
+
+[**Commentaire :**]{.underline}
+
+Nous voyons que les variables financières sont pour la plupart assez peu
+correlées avec nos matières premières durant la période POST-COVID.
+
+Le **cuivre (HG.F)** montre des corrélations modérées avec certaines
+variables financières :
+
+-   Le NASDAQ Composite (IXIC) : corrélation de 0.532, indiquant une
+    légère dépendance au marché boursier.
+-   Les taux de change EUR/USD (EURUSD=X) : corrélation de 0.559,
+    significative mais moindre qu’en période COVID.
+-   Les autres variables financières, comme les bons du trésor américain
+    (IRX) et l’indice de volatilité (VIX), montrent des corrélations
+    faibles ou négligeables.
+
+Le **Gaz naturel (NG.F)** affiche une corrélation significative avec :
+
+-   Les bons du trésor américain (IRX) : corrélation de 0.826,
+    soulignant un lien avec les taux d’intérêt.
+-   L'indice de volatilité (VIX) : corrélation de 0.756, indiquant une
+    sensibilité accrue aux incertitudes du marché.
+-   Les taux de change EUR/USD (EURUSD=X) : corrélation modérée de
+    0.537.
+
+Le **Maïs (ZC=F)** relativement indépendant des variables financières,
+avec des corrélations faibles :
+
+-   Le NASDAQ Composite (IXIC) : corrélation quasi nulle (-0.071).
+-   Une corrélation notable avec KE.F (autre matière première) de 0.544,
+    suggérant une dynamique liée à l'offre ou à des facteurs spécifiques
+    au secteur agricole.
+
+Le **Blé (KE.F)** montre des corrélations importantes avec :
+
+-   Le maïs (ZC.F) : corrélation de 0.544.
+-   L'indice de volatilité (VIX) : corrélation de 0.701, soulignant une
+    forte dépendance aux incertitudes du marché.
+-   Les taux de change EUR/USD (EURUSD=X) : corrélation significative de
+    0.769.)
+
+*Synthèse :*
+
+-   Le NASDAQ Composite (IXIC) et le taux de change EUR/USD (EURUSD=X)
+    conservent une influence notable sur le cuivre, bien qu’atténuée par
+    rapport à la période COVID.
+
+-   Le gaz naturel (NG.F) montre une forte corrélation avec les taux
+    d’intérêt (IRX) et la volatilité (VIX), ce qui pourrait refléter une
+    sensibilité accrue aux perturbations macroéconomiques et
+    géopolitiques.
+
+Le maïs (ZC.F) reste décorrelé de la plupart des variables financières,
+indiquant une dynamique largement indépendante des marchés financiers
+globaux.
+
+La forte corrélation entre le blé et les variables comme le VIX ou
+EUR/USD suggère que cette matière première est influencée par les
+incertitudes et les fluctuations monétaires.
+
+#### 4.1.2.3 Période Ukraine
+
+```{r}
+# recherche du coefficient de corrélation 
+options(scipen = 999, digits = 3)
+cor(Clean_Data_Ukraine)
+```
+
+Verification de la significativité des p-values des différentes
+corrélations
+
+```{r}
+corrplot.mixed(cor(Clean_Data_Ukraine), p.mat = cor.mtest(Clean_Data_Ukraine)$p)
+```
+
+[**Commentaire :**]{.underline}
+
+Nous voyons que les variables financières sont pour la plupart assez peu
+correlées avec nos matières premières durant la période POST-COVID.
+
+Le **cuivre (HG.F)** montre des corrélations relativement faibles avec
+les variables financières :
+
+-   Le NASDAQ Composite (IXIC) : corrélation modérée de 0.412.
+-   Les taux de change EUR/USD (EURUSD=X) : corrélation faible de 0.278.
+-   Les autres variables, comme les bons du trésor américain (IRX) et
+    l’indice de volatilité (VIX), n’affichent pas de corrélation
+    significative.
+
+Le **Gaz naturel (NG.F)** est correlé avec :
+
+-   Le NASDAQ Composite (IXIC) : corrélation élevée de 0.827, suggérant
+    une dépendance accrue aux dynamiques boursières.
+-   L'iIndice de volatilité (VIX) : corrélation négative forte de
+    -0.851, indiquant une sensibilité inverse aux incertitudes du
+    marché.
+-   Les bons du trésor américain (IRX) : corrélation notable de 0.757.
+
+Le **Maïs (ZC=F)** est globalement décorrelé des variables financières :
+
+Les corrélations avec les indices principaux, comme le NASDAQ Composite
+(IXIC) et le VIX, sont faibles (-0.197 et 0.110, respectivement). Aucune
+corrélation significative n’est observée avec le taux de change EUR/USD
+ou les bons du trésor américain (IRX).
+
+Le **Blé (KE.F)** montre des corrélations intéressantes avec certaines
+variables :
+
+-   Le maïs (ZC.F) : corrélation modérée de 0.465.
+-   L'indice de volatilité (VIX) : corrélation modérée de 0.470,
+    suggérant une certaine sensibilité aux incertitudes.
+-   Les taux de change EUR/USD (EURUSD=X) : corrélation négative forte
+    de -0.605.
+
+*Synthèse :*
+
+-   Les variables financières, telles que le NASDAQ Composite (IXIC) et
+    le VIX, influencent le gaz naturel (NG.F) de manière significative,
+    tandis que leur impact sur le cuivre (HG.F) reste limité.
+
+-   Le maïs (ZC.F) reste largement indépendant des dynamiques
+    financières globales.
+
+-   Le taux de change EUR/USD (EURUSD=X) et les bons du trésor américain
+    (IRX) montrent des corrélations faibles à modérées avec certaines
+    matières premières, notamment le cuivre et le gaz.
+
+-   L’influence globale des variables financières semble s’atténuer, à
+    l’exception du gaz naturel, qui reste sensible aux indices boursiers
+    et aux incertitudes.
+
+### 4.1.3 Régression linéraire
+
+Nous allons réaliser à présent réaliser des modèles de régression
+linéaire pour chacune des trois périodes étudiées. Cela représente au
+total 45 modèle par période.
+
+#### 4.1.3.1 Modèles de régression linéaire période COVID
+
+Concernant la période Covid, comme vu dans l'analyse des corrélation, 3
+des 4 variables financières sont correlées avec nos trois matières
+premières. Nous allons donc choisir de réaliser un modèle à 3 variables
+avec les variables suivantes :
+
+-   Le bon du trésor américain à 13 semaines (\^IRX)
+
+-   Le taux de change EUR/USD (EURUSD=X)
+
+-   Le NASDAQ composite (IXIC)
+
+[**Modèle de régression pour le cuivre :**]{.underline}
+
+```{r}
+# Cooper + (13 weeks treasury bill; EUR/USD; Nasdaq Composite)
+Cooper_Model_Covid <-lm(log(HG.F.Close) ~ 
+                     IRX.Close + log(EURUSD.X.Close) + log(IXIC.Close), 
+                   data = Clean_Data_Covid)
+```
+
+[**Modèle de régression pour le gaz :**]{.underline}
+
+```{r}
+# Gaz + (13 weeks treasury bill; EUR/USD; Nasdaq Composite)
+Gaz_Model_Covid <-lm(log(NG.F.Close) ~ 
+                     IRX.Close + log(EURUSD.X.Close) + log(IXIC.Close), 
+                   data = Clean_Data_Covid)
+```
+
+[**Modèle de régression pour le maïs :**]{.underline}
+
+```{r}
+# Corn + (13 weeks treasury bill; EUR/USD; Nasdaq Composite)
+Corn_Model_Covid <-lm(log(ZC.F.Close) ~ 
+                     IRX.Close + log(EURUSD.X.Close) + log(IXIC.Close), 
+                   data = Clean_Data_Covid)
+```
+
+#### 4.1.3.2 Analyse de régression linéaire période COVID
+
+[**Analyse des différents modèles :**]{.underline}
+
+```{r}
+# Modèles à 3 variables pour le cuivre, gaz et maïs :
+export_summs(Cooper_Model_Covid,Gaz_Model_Covid,Corn_Model_Covid)
+```
+
+| Indicateur     | Cooper | Gaz   | Corn |
+|----------------|--------|-------|------|
+| P-value IRX    | 0.12   | 0.05  | 0.05 |
+| P-value EURUSD | 1.65   | 2.17  | 0.83 |
+| P-value IXIC   | 0.10   | -0.07 | 0.20 |
+| R²             | 0.89   | 0.73  | 0.81 |
+
+[**Interprétation pour le cuivre :**]{.underline}
+
+-   **IRX.Close :** Coefficient de 0.12 (**p \< 0.01**) : Une hausse des
+    taux d’intérêt à court terme est significativement associée à une
+    augmentation du prix du cuivre. Cela peut refléter une corrélation
+    entre la vigueur économique (qui pousse les taux à la hausse) et la
+    demande pour le cuivre, un métal industriel clé.
+
+-   **log(EURUSD.X.Close) :** Coefficient de 1.65 (**p \< 0.001**) : Le
+    taux de change EUR/USD a un impact très significatif et positif sur
+    le prix du cuivre. Une appréciation de l’euro par rapport au dollar
+    favorise une hausse du prix du cuivre, peut-être en raison de son
+    rôle dans le commerce international.
+
+-   **log(IXIC.Close) :** Coefficient de 0.10 (non significatif).
+    L’indice Nasdaq ne semble pas jouer un rôle direct significatif sur
+    le prix du cuivre.
+
+Le modèle explique 89% des variations du cours du cuivre. Ce qui indique
+une très bonne qualité d'ajustement du modèle.
+
+[**Interprétation cours du gaz :**]{.underline}
+
+-   **IRX.Close :** Coefficient de 0.05 (non significatif).
+    Contrairement au cuivre, les taux d’intérêt ne semblent pas affecter
+    directement les prix du gaz.
+
+-   **log(EURUSD.X.Close) :** Coefficient de 2.17 (**p \< 0.001**) :
+    L’appréciation de l’euro face au dollar est fortement et
+    significativement liée à une augmentation du prix du gaz. Cela
+    reflète l’importance des devises dans les échanges énergétiques
+    mondiaux, où le dollar est souvent la monnaie de référence.
+
+-   **log(IXIC.Close) :** Coefficient de -0.07 (non significatif). Le
+    Nasdaq n’a pas d’impact significatif sur les prix du gaz.
+
+Les modèle explique 73% des variations du cours du gaz . Ce qui indique
+un ajustement modéré du modèle.
+
+[**Interprétation cours du maïs :**]{.underline}
+
+-   **IRX.Close :** Coefficient de 0.05 (non significatif). Les taux
+    d’intérêt à court terme n’ont pas d’impact significatif sur le prix
+    du maïs.
+
+-   **log(EURUSD.X.Close) :** Coefficient de 0.83 (*p \< 0.05*) :
+    L’appréciation de l’euro par rapport au dollar est significativement
+    et positivement associée au prix du maïs, bien que cet effet soit
+    moins marqué que pour le cuivre ou le gaz.
+
+-   **log(IXIC.Close) :** Coefficient de 0.20 (non significatif).
+    L’indice Nasdaq n’a pas d’impact significatif sur le prix du maïs.
+
+Le modèle explique 81% des variations du cours du gaz. Ce qui indique
+une bonne qualité d'ajustement du modèle.
+
+[**Conclusion :**]{.underline}
+
+Les prix des matières premières pendant la période COVID sont
+principalement influencés par les taux de change, en particulier
+l’EUR/USD, et dans une moindre mesure par les taux d’intérêt pour
+certains marchés comme le cuivre. Les indices boursiers comme le Nasdaq
+n’ont pas montré d’impact significatif. Ces résultats reflètent
+l’importance des conditions macroéconomiques globales sur les marchés
+des matières premières pendant une période de grande incertitude
+économique.
+
+#### 4.1.3.3 Modèles de régression linéaire période POST-COVID
+
+Concernant la période post-covid, le maïs est totalement décorrelé de
+toutes les variables financières ainsi que des matières premières du
+portefeuille.
+
+Ces 2 matières premières sont toutes deux correlées avec le taux de
+change EUR/USD, nous allons donc réaliser une régression linéaire avec
+cette variable. Nous allons tout de même inclure le maïs dans nos
+régressions afin de garder le portefeuille au complet.
+
+ajouter que on mets KE=F et \^IRX dans la régression
+
+[**Modèles de régression pour le cuivre :**]{.underline}
+
+```{r}
+# Cooper + EUR/USD + KE=F + ^IRX
+Cooper_Model_Post_Covid <-lm(log(HG.F.Close) ~ log(EURUSD.X.Close) + log(KE.F.Close), data = Clean_Data_Post_Covid)
+```
+
+[**Modèle de régression pour le gaz :**]{.underline}
+
+```{r}
+# Gaz + EUR/USD
+Gaz_Model_Post_Covid <-lm(log(NG.F.Close) ~ log(EURUSD.X.Close) + log(KE.F.Close), data = Clean_Data_Post_Covid)
+```
+
+[**Modèles de régression pour le maïs :**]{.underline}
+
+```{r}
+# Corn + EUR/USD
+Corn_Model_Post_Covid <-lm(log(ZC.F.Close) ~ log(EURUSD.X.Close) + log(KE.F.Close), data = Clean_Data_Post_Covid)
+```
+
+#### 4.1.3.4 Analyse de régression linéaire période POST-COVID
+
+[**Analyse des différents modèles :**]{.underline}
+
+```{r}
+# Modèles à 1 variable :
+export_summs(Cooper_Model_Post_Covid, Gaz_Model_Post_Covid, Corn_Model_Post_Covid)
+```
+
+| Indicateur     | Cooper | Gaz  | Corn |
+|----------------|--------|------|------|
+| P-value EURUSD | 1.03   | 2.50 | 0.26 |
+| R²             | 0.31   | 0.28 | 0.03 |
+
+[**Interprétation cours du cuivre :**]{.underline}
+
+-   **log(EURUSD.X.Close) :** Coefficient de 1.03 (**p \< 0.01**),
+    montrant une relation positive et significative entre le taux de
+    change EUR/USD et le prix du cuivre. Une appréciation de l'euro face
+    au dollar est associée à une hausse des prix du cuivre.
+
+-   **R² = 0.31 :** Le modèle explique 31 % de la variation des prix du
+    cuivre, ce qui est relativement faible mais suggère que d'autres
+    facteurs non inclus dans ce modèle influencent également les prix.
+
+[**Interprétation cours du gaz :**]{.underline}
+
+-   **log(EURUSD.X.Close) :** Coefficient de 2.50 (*p \< 0.05*),
+    montrant une relation positive et significative entre le taux de
+    change EUR/USD et le prix du gaz. Cet effet est plus marqué que pour
+    le cuivre.
+
+-   **R² = 0.28 :** Le modèle explique 28 % de la variation des prix du
+    gaz, indiquant une capacité explicative faible.
+
+[**Interprétation cours du maïs :**]{.underline}
+
+-   **log(EURUSD.X.Close) :** Coefficient de 0.26 (non significatif, p
+    \> 0.05), montrant que le taux de change EUR/USD n’a pas d’impact
+    significatif sur le prix du maïs dans cette période.
+
+-   **R² = 0.03 :** Le modèle explique seulement 3 % de la variation des
+    prix du maïs, ce qui est extrêmement faible.
+
+[**Conclusion :**]{.underline}
+
+Le taux de change EUR/USD conserve une influence significative sur les
+prix, avec un effet particulièrement marqué sur le gaz. Le modèle n’est
+pas pertinent pour expliquer les prix du maïs post-COVID. L’impact des
+variables financières sur les matières premières semble diminuer après
+la période COVID, soulignant le retour à des dynamiques plus spécifiques
+à chaque marché.
+
+#### 4.1.3.5 Modèles de régression linéaire période Ukraine
+
+[**Modèles de régression pour le cuivre :**]{.underline}
+
+```{r}
+# Cooper + (KE=F + ^IXIC)
+Cooper_Model_Ukraine <-lm(log(HG.F.Close) ~ log(IXIC.Close) + log(KE.F.Close), 
+                   data = Clean_Data_Ukraine)
+```
+
+[**Modèles de régression pour le gaz :**]{.underline}
+
+```{r}
+# Gaz + (KE=F + ^IXIC)
+Gaz_Model_Ukraine <-lm(log(NG.F.Close) ~ log(IXIC.Close) + log(KE.F.Close) , data = Clean_Data_Ukraine)
+```
+
+[**Modèles de régression pour le maïs :**]{.underline}
+
+```{r}
+# Corn + (KE=F + ^IXIC)
+Corn_Model_Ukraine <-lm(log(ZC.F.Close) ~ log(IXIC.Close) + log(KE.F.Close) , data = Clean_Data_Ukraine)
+```
+
+#### 4.1.3.2 Analyse de régression linéaire période UKRAINE
+
+[**Analyse des différents modèles :**]{.underline}
+
+```{r}
+export_summs(Cooper_Model_Ukraine, Gaz_Model_Ukraine, Corn_Model_Ukraine)
+```
+
+### **Interprétation du cours du cuivre (Modèle 1)**
+
+-   **log(IXIC.Close) :** Coefficient de **0.33 (p \< 0.001)**,
+    indiquant une relation positive et hautement significative entre
+    l’indice Nasdaq et le prix du cuivre. Cela suggère que la
+    performance du marché boursier influence fortement le prix du
+    cuivre, ce qui est cohérent avec l'idée que les matières premières
+    industrielles sont sensibles aux cycles économiques et aux
+    performances des marchés financiers.
+
+-   **log(KE.F.Close) :** Coefficient de **0.26 (p \< 0.01)**, également
+    significatif. Cela implique que cette variable a un impact positif
+    sur le prix du cuivre, bien que son effet soit plus modéré que celui
+    du Nasdaq.
+
+-   **R² = 0.50** : Le modèle explique **50 % de la variation** des prix
+    du cuivre, ce qui est relativement élevé pour un modèle économique,
+    mais suggère encore la présence de facteurs non inclus dans
+    l'analyse.
+
+### **Interprétation du cours du gaz (Modèle 2)**
+
+-   **log(IXIC.Close) :** Coefficient de **1.52 (p \< 0.001)**,
+    indiquant une relation positive et très significative entre l’indice
+    Nasdaq et le prix du gaz. Cela signifie que la performance des
+    marchés boursiers a un effet notable sur le prix du gaz,
+    potentiellement via des canaux macroéconomiques, comme la demande
+    industrielle et la croissance économique.
+
+-   **log(KE.F.Close) :** Coefficient de **0.34 (non significatif)**.
+    L'absence de signification statistique suggère que cette variable
+    n’a pas d’influence claire sur le prix du gaz dans ce modèle.
+
+-   **R² = 0.72** : Le modèle explique **72 % de la variation** des prix
+    du gaz, ce qui est un très bon score en termes d’explication des
+    variations de prix. Cela signifie que les variables incluses dans le
+    modèle capturent une large partie des dynamiques du marché du gaz.
+
+### **Interprétation du cours du maïs (Modèle 3)**
+
+-   **log(IXIC.Close) :** Coefficient de **0.01 (non significatif)**,
+    suggérant que l’indice Nasdaq n’a pas d’effet significatif sur le
+    prix du maïs. Cela est cohérent avec le fait que les matières
+    premières agricoles sont moins sensibles aux fluctuations des
+    marchés financiers.
+
+-   **log(KE.F.Close) :** Coefficient de **0.14 (p \< 0.05)**, indiquant
+    un effet significatif mais relativement faible. Cela pourrait
+    refléter une relation indirecte entre cette variable et le marché du
+    maïs, peut-être via des facteurs économiques globaux ou les coûts de
+    production agricole.
+
+-   **R² = 0.23** : Le modèle explique **23 % de la variation** des prix
+    du maïs, ce qui est relativement faible. Cela indique que les prix
+    du maïs dépendent principalement d’autres facteurs non pris en
+    compte ici, comme les conditions météorologiques, les politiques
+    agricoles ou les tendances de consommation.
+
+### **Conclusion générale**
+
+-   **Cours du cuivre :** Le prix du cuivre est significativement
+    influencé par l’indice Nasdaq, indiquant une forte corrélation avec
+    la dynamique économique globale. Un second facteur, **KE.F.Close**,
+    a également un effet significatif, bien que moindre.
+
+-   **Cours du gaz :** Le prix du gaz est fortement influencé par le
+    Nasdaq, ce qui peut être lié à la demande industrielle et à la
+    consommation d’énergie dans les périodes de croissance économique.
+    Cependant, la variable **KE.F.Close** ne semble pas avoir d’impact
+    direct.
+
+-   **Cours du maïs :** Contrairement aux autres matières premières, le
+    prix du maïs n’est pas influencé par le Nasdaq, mais il montre une
+    relation faible mais significative avec **KE.F.Close**, suggérant
+    des liens plus complexes avec l'économie mondiale.
+
+En résumé, le cuivre et le gaz sont fortement influencés par les
+dynamiques des marchés financiers, tandis que le maïs est moins corrélé
+aux fluctuations macroéconomiques et financières, et dépend davantage de
+variables spécifiques au secteur agricole.
+
+# 5. Prédiction du cours et du rendement du portefeuille de matières premières
+
+Nous allons à présent prédire le cours des matières premières au 1er
+avril 2022. Nous allons donc travailler sur la période intitulée
+"Ukraine" dans nos dataset. Pour étudier au mieux le possible prix de
+nos matières premières, nous allons réaliser 3 types de modèles :
+
+-   Moyennes mobiles
+
+-   Lissage exponentiel
+
+-   Autorégression
+
+## 5.1 Moyennes mobiles
+
+Nous allons dans cette partie réaliser des modèles de moyenne mobile à
+2, 4 et 6 jours pour chacune de nos matières premières (Cuivre, gaz et
+maïs). Nous analyserons et comparerons nos résultats ensuite pour nos 3
+matières.
+
+### 5.1.1 Cuivre
+
+Modèle à 2 jours :
+
+```{r}
+ma2_Cooper <- ma(Cooper_Data_Ukraine, order = 2, centre = FALSE)
+fma2_Cooper <- forecast(ma2_Cooper, h = 1)
+print(fma2_Cooper)
+```
+
+Modèle à 4 jours :
+
+```{r}
+ma4_Cooper <- ma(Cooper_Data_Ukraine, order = 4, centre = FALSE)
+fma4_Cooper <- forecast(ma4_Cooper, h = 1)
+print(fma4_Cooper)
+```
+
+Modèle à 6 jours :
+
+```{r}
+ma6_Cooper <- ma(Cooper_Data_Ukraine, order = 6, centre = FALSE)
+fma6_Cooper <- forecast(ma6_Cooper, h = 1)
+print(fma6_Cooper)
+```
+
+Sélection du meilleur modèle :
+
+```{r}
+accuracy(fma2_Cooper)
+accuracy(fma4_Cooper)
+accuracy(fma6_Cooper)
+```
+
+Le troisième modèle est le plus performant selon les indicateurs de
+précision (RMSE = 0.024, MAE = 0.0151). Bien que son MAPE reste élevé
+(0.326), il surpasse les autres modèles dans la majorité des métriques
+et sera préféré pour les prévisions
+
+### 5.1.2 Gaz Naturel
+
+Modèle à 2 jours :
+
+```{r}
+ma2_Gaz <- ma(Gaz_Data_Ukraine, order = 2, centre = FALSE)
+fma2_Gaz <- forecast(ma2_Gaz, h = 1)
+print(fma2_Gaz)
+```
+
+Modèle à 4 jours :
+
+```{r}
+ma4_Gaz <- ma(Gaz_Data_Ukraine, order = 4, centre = FALSE)
+fma4_Gaz <- forecast(ma4_Gaz, h = 1)
+print(fma4_Gaz)
+```
+
+Modèle à 6 jours :
+
+```{r}
+ma6_Gaz <- ma(Gaz_Data_Ukraine, order = 6, centre = FALSE)
+fma6_Gaz <- forecast(ma6_Gaz, h = 1)
+print(fma6_Gaz)
+```
+
+Analyse : Les trois modèles prévoient une tendance globalement
+haussière, bien que les prévisions à 2 jours restent incertaines, avec
+des intervalles de confiance suggérant une possibilité de rendements
+négatifs. Les modèles à 4 jours et 6 jours offrent des prévisions plus
+stables, et le modèle à 6 jours semble être le plus fiable grâce à des
+intervalles de confiance resserrés autour d’une prévision positive.
+
+Sélection du meilleur modèle :
+
+```{r}
+accuracy(fma2_Gaz)
+accuracy(fma4_Gaz)
+accuracy(fma6_Gaz)
+```
+
+Le troisième modèle est le plus performant grâce à ses valeurs minimales
+de RMSE (0.0341) et MAE (0.0251), indiquant des prévisions plus
+précises. Bien que son MAPE (0.522) soit comparable à celui du premier
+modèle, il reste acceptable. Par conséquent, ce modèle est recommandé
+pour les prévisions.
+
+### 5.1.3 Maïs
+
+Modèle à 2 jours :
+
+```{r}
+ma2_Corn <- ma(Corn_Data_Ukraine, order = 2, centre = FALSE)
+fma2_Corn <- forecast(ma2_Corn, h = 1)
+print(fma2_Corn)
+```
+
+Modèle à 4 jours :
+
+```{r}
+ma4_Corn <- ma(Corn_Data_Ukraine, order = 4, centre = FALSE)
+fma4_Corn <- forecast(ma4_Corn, h = 1)
+print(fma4_Corn)
+```
+
+Modèle à 6 jours :
+
+```{r}
+ma6_Corn <- ma(Corn_Data_Ukraine, order = 6, centre = FALSE)
+fma6_Corn <- forecast(ma6_Corn, h = 1)
+print(fma6_Corn)
+```
+
+Analyse : Les modèles prévoient une tendance globalement stable pour le
+maïs, avec des prévisions proches de zéro. Les intervalles de confiance
+restent larges, indiquant une incertitude significative. Le modèle à 6
+jours semble offrir une légère amélioration en termes de précision grâce
+à des intervalles plus resserrés.
+
+Sélection du meilleur modèle :
+
+```{r}
+accuracy(fma2_Corn)
+accuracy(fma4_Corn)
+accuracy(fma6_Corn)
+```
+
+Le troisième modèle est le plus précis, comme l'indiquent ses valeurs
+minimales de RMSE (0.389) et MAE (0.33). Bien que les erreurs relatives
+(MAPE) restent élevées, ce modèle est le plus adapté pour les prévisions
+sur cette série.
+
+### 5.1.4 Comparaison des meilleurs modèles
+
+Réaliser un tableau récap qui donne le modèle sélectionné pour chaque
+matière première ainsi que les RMSE, MAE et MAPE. Eventuellement écrire
+un petit commentaire pour dire quelle matière première a un cours qui
+monte et quelle matière a un cours qui baisse via ce modèle
+
+| Matière première | Modèle selectionné | RSME  | MAE   | MAPE | Tendance           |
+|------------------|--------------------|-------|-------|------|--------------------|
+| Cuivre           | Modèle à 6 jours   | 0.445 | 0.338 | 404  | Hausse modérée     |
+| Gaz naturel      | Modèle à 6 jours   | 0.737 | 0.567 | 79.9 | Hausse notable     |
+| Maïs             | Modèle à 6 jours   | 0.389 | 0.33  | 110  | Stabilité relative |
+
+**Conclusion**
+
+-   **Cuivre (HG.F) :** Le modèle à 6 jours prévoit une **tendance
+    haussière modérée**, bien que les erreurs relatives (MAPE) soient
+    élevées.
+
+-   **Gaz naturel (NG.F) :** La **hausse est plus marquée** pour le gaz
+    naturel, selon les prévisions du modèle sélectionné.
+
+-   **Maïs (ZC.F) :** Les prévisions montrent une **stabilité globale**,
+    avec une légère tendance haussière et les erreurs les plus faibles
+    parmi les trois matières premières.
+
+## 5.2 Lissage exponentiel
+
+Nous allons à présent réaliser 3 différents modèles de lissage
+exponentiel pour chaque matière première avec les critères suivant :
+
+-   W = 0.2
+
+-   W = 0.5
+
+-   W= 0.7
+
+### 5.2.1 Cuivre
+
+Modification des dataframe :
+
+```{r}
+Cooper_Data_Ukraine_es <- ts(Cooper_Data_Ukraine, frequency = 1) 
+```
+
+Un modèle avec un paramètre de lissage 0.30, donc « alpha 0.30 »:
+
+```{r}
+# Création du modèle :
+Cooper_ES30 <- ses(Cooper_Data_Ukraine_es, alpha = 0.3)
+
+# prédiction des rendements :
+Cooper_fES30 <- forecast(Cooper_ES30, h = 1)
+
+# Résultat du mmodèle :
+print(Cooper_fES30)
+
+```
+
+Un modèle avec un paramètre de lissage 0.50, donc « alpha 0.50 »:
+
+```{r}
+# Création du modèle :
+Cooper_ES50 <- ses(Cooper_Data_Ukraine_es, alpha = 0.5)
+
+# prédiction des rendements :
+Cooper_fES50 <- forecast(Cooper_ES50, h = 1)
+
+# Résultat du mmodèle :
+print(Cooper_fES50)
+```
+
+Un modèle avec un paramètre de lissage 0.70, donc « alpha 0.70 »:
+
+```{r}
+# Création du modèle :
+Cooper_ES70 <- ses(Cooper_Data_Ukraine_es, alpha = 0.7)
+
+# prédiction des rendements :
+Cooper_fES70 <- forecast(Cooper_ES70, h = 1)
+
+# Résultat du mmodèle :
+print(Cooper_fES70)
+```
+
+Les différents modèles prévoient des rendement faiblement positifs
+(0.2%, 0.28% et 0.37%, respectivement). Ce qui confirme de la tendance
+haussière du cuivre pendant au début de la guerre en ukraine
+
+Evaluation de la qualité des modèles :
+
+```{r}
+accuracy(Cooper_fES30)
+accuracy(Cooper_fES50)
+accuracy(Cooper_fES70)
+```
+
+Le modèle de prévision avec un « alpha 0.7 » (fES70) est le meilleur en
+termes de qualité de prédiction (3 sur 3 critères)
+
+### 5.2.2 Gaz
+
+Modification des dataframe :
+
+```{r}
+Gaz_Data_Ukraine_es <- ts(Gaz_Data_Ukraine, frequency = 1) 
+```
+
+Un modèle avec un paramètre de lissage 0.30, donc « alpha 0.30 »:
+
+```{r}
+# Création du modèle :
+Gaz_ES30 <- ses(Gaz_Data_Ukraine, alpha = 0.3)
+
+# prédiction des rendements :
+Gaz_fES30 <- forecast(Gaz_ES30, h = 1)
+
+# Résultat du mmodèle :
+print(Gaz_fES30)
+
+```
+
+Un modèle avec un paramètre de lissage 0.50, donc « alpha 0.50 »:
+
+```{r}
+# Création du modèle :
+Gaz_ES50 <- ses(Gaz_Data_Ukraine, alpha = 0.5)
+
+# prédiction des rendements :
+Gaz_fES50 <- forecast(Gaz_ES50, h = 1)
+
+# Résultat du mmodèle :
+print(Gaz_fES50)
+```
+
+Un modèle avec un paramètre de lissage 0.70, donc « alpha 0.70 »:
+
+```{r}
+# Création du modèle :
+Gaz_ES70 <- ses(Gaz_Data_Ukraine, alpha = 0.7)
+
+# prédiction des rendements :
+Gaz_fES70 <- forecast(Gaz_ES70, h = 1)
+
+# Résultat du mmodèle :
+print(Gaz_fES70)
+```
+
+Les différents modèles prévoient des rendements positifs (1.56%, 1.96%
+et 2.88%, respectivement). Ce qui confirme de la tendance haussière du
+gaz pendant au début de la guerre en ukraine
+
+Evaluation de la qualité des modèles :
+
+```{r}
+accuracy(Gaz_fES30)
+accuracy(Gaz_fES50)
+accuracy(Gaz_fES70)
+```
+
+Le modèle de prévision avec un « alpha 0.7 » (fES70) est le meilleur en
+termes de qualité de prédiction (3 sur 3 critères)
+
+### 5.2.3 Maïs
+
+Modification des dataframe :
+
+```{r}
+Corn_Data_Ukraine_es <- ts(Corn_Data_Ukraine, frequency = 1) 
+```
+
+Un modèle avec un paramètre de lissage 0.70, donc « alpha 0.70 »:
+
+```{r}
+# Création du modèle :
+Corn_ES30 <- ses(Corn_Data_Ukraine_es, alpha = 0.3)
+
+# prédiction des rendements :
+Corn_fES30 <- forecast(Corn_ES30, h = 1)
+
+# Résultat du mmodèle :
+print(Corn_fES30)
+
+```
+
+Un modèle avec un paramètre de lissage 0.50, donc « alpha 0.50 »:
+
+```{r}
+# Création du modèle :
+Corn_ES50 <- ses(Corn_Data_Ukraine_es, alpha = 0.5)
+
+# prédiction des rendements :
+Corn_fES50 <- forecast(Corn_ES50, h = 1)
+
+# Résultat du mmodèle :
+print(Corn_fES50)
+```
+
+Un modèle avec un paramètre de lissage 0.70, donc « alpha 0.70 »:
+
+```{r}
+# Création du modèle :
+Corn_ES70 <- ses(Corn_Data_Ukraine_es, alpha = 0.7)
+
+# prédiction des rendements :
+Corn_fES70 <- forecast(Corn_ES70, h = 1)
+
+# Résultat du mmodèle :
+print(Corn_fES70)
+```
+
+Les différents modèles prévoient des rendements faiblement négatif ou
+faiblement positif (-0.2%, -0.004% et 0.47%, respectivement). Ce qui
+confirme une stagnation du cours du maïs pendant au début de la guerre
+en ukraine
+
+Evaluation de la qualité des modèles :
+
+```{r}
+accuracy(Corn_fES30)
+accuracy(Corn_fES50)
+accuracy(Corn_fES70)
+```
+
+Le modèle de prévision avec un « alpha 0.3 » (fES30) est le meilleur en
+termes de qualité de prédiction (3 sur 3 critères)
+
+### 5.2.4 Conclusion du lissage exponentiel
+
+Nous avons donc vu que pour les 3 matirèes premières c'est le modèle
+W=0.3 qui est le meilleur en terme de qualité de prédiction
+
+## 5.3 Autoregression
+
+Dans cette partie, nous allons commencer avecun modèle autoregressif
+d'ordre 3 jusqu'a trouver un modèle valable.
+
+### 5.3.1 Cuivre
+
+Modèle d'ordre 3 :
+
+```{r}
+Cooper_ar3 <- Arima(Cooper_Data_Ukraine, order=c(3,0,0))
+coeftest(Cooper_ar3)
+```
+
+D’après les résultats, la probabilité est 28.9% (Pr(\>\|Z\|) \> 5%) 
+
+```{r}
+Cooper_ar2 <- Arima(Cooper_Data_Ukraine, order=c(2,0,0))
+coeftest(Cooper_ar2)
+```
+
+D’après les résultats, la probabilité est 24.1% (Pr(\>\|Z\|) \> 5%) 
+
+```{r}
+Cooper_ar1 <- Arima(Cooper_Data_Ukraine, order=c(1,0,0))
+coeftest(Cooper_ar1)
+```
+
+Parconséquent, nous allons retenir un modèle autorégressif d’ordre 1
+(« Cooper_ar1 ») pour effectuer la prévision du rendement du cuivre
+
+```{r}
+Cooper_far1 <- forecast(Cooper_ar1, h=1)
+print(Cooper_far1)
+```
+
+Le modèle autorégressif d’ordre 1 (« Cooper_ar1 ») prédit un cours du
+cuivre de 4.71
+
+Evaluation du modèle :
+
+```{r}
+accuracy(Cooper_ar1)
+```
+
+### 5.3.2 Gaz
+
+Modèle d'ordre 3 :
+
+```{r}
+Gaz_ar3 <- Arima(Gaz_Data_Ukraine, order=c(3,0,0))
+coeftest(Gaz_ar3)
+```
+
+D’après les résultats, la probabilité est 27% (Pr(\>\|Z\|) \> 5%)  Donc,
+on estime un modèle autorégressif d'ordre 2 et on sauvegarde les
+résultats dans « Gaz_ar2 »:
+
+```{r}
+Gaz_ar2 <- Arima(Gaz_Data_Ukraine, order=c(2,0,0))
+coeftest(Gaz_ar2)
+```
+
+D’après les résultats, la probabilité est 90% (Pr(\>\|Z\|) \> 5%)  Donc,
+on estime un modèle autorégressif d'ordre 1 et on sauvegarde les
+résultats dans « Gaz_ar1 »:
+
+```{r}
+Gaz_ar1 <- Arima(Gaz_Data_Ukraine, order=c(1,0,0))
+coeftest(Gaz_ar1)
+```
+
+D’après les résultats, la probabilité est 0% (Pr(\>\|Z\|) \> 5%) 
+
+Par conséquent, nous allons retenir un modèle autorégressif d’ordre 1
+(« Cooper_ar1 »), car il a le p-value le plus faible, pour effectuer la
+prévision du rendement du gaz
+
+```{r}
+Gaz_far1 <- forecast(Gaz_ar1, h=1)
+print(Gaz_far1)
+```
+
+Le modèle autorégressif d’ordre 2 (« Cooper_ar2 ») prédit cours du gaz
+de 5.55
+
+Evaluation du modèle :
+
+```{r}
+accuracy(Gaz_ar2)
+```
+
+### 5.3.3 Maïs
+
+Modèle d'ordre 3 :
+
+```{r}
+Corn_ar3 <- Arima(Corn_Data_Ukraine, order=c(3,0,0))
+coeftest(Corn_ar3)
+```
+
+D’après les résultats, la probabilité est 59% (Pr(\>\|Z\|) \> 5%)  Donc,
+on estime un modèle autorégressif d'ordre 2 et on sauvegarde les
+résultats dans « Corn_ar2 »:
+
+```{r}
+Corn_ar2 <- Arima(Corn_Data_Ukraine, order=c(2,0,0))
+coeftest(Corn_ar2)
+```
+
+D’après les résultats, la probabilité est 74% (Pr(\>\|Z\|) \> 5%)  Donc,
+on estime un modèle autorégressif d'ordre 1 et on sauvegarde les
+résultats dans « Corn_ar1 »:
+
+```{r}
+Corn_ar1 <- Arima(Corn_Data_Ukraine, order=c(1,0,0))
+coeftest(Corn_ar1)
+```
+
+D’après les résultats, la probabilité est 27% (Pr(\>\|Z\|) \> 5%) 
+
+Par conséquent, nous allons retenir un modèle autorégressif d’ordre 1
+(« Corn_ar1 ») pour effectuer la prévision du cours du maïs car c'est ce
+modèle qui a la p-value la moins élevée :
+
+```{r}
+Corn_far1 <- forecast(Corn_ar1, h=1)
+print(Corn_far1)
+```
+
+Le modèle autorégressif d’ordre 1 (« Corn_ar1 ») prédit un cours du maïs
+de 750
+
+Evaluation du modèle :
+
+```{r}
+accuracy(Corn_ar1)
+```
+
+### 5.3.4 Conclusion du modèle autoregressif
+
+Nous avons donc choisi les modèles suivants pour nos matières premières
+:
+
+-   Cuivre : modèle d'ordre 3
+
+-   Gaz : Modèle d'ordre 2
+
+-   Maïs : Modèle d'ordre 1
+
+## 5.4 Sélection du meilleur modèle
+
+### 5.4.1 Cuivre
+
+```{r}
+# Moyenne mobile à 6 jours :
+accuracy(fma6_Cooper)
+# Lissage exponentiel W=0.3 :
+accuracy(Cooper_fES70)
+# Autoregression d'ordre 3 :
+accuracy(Cooper_ar1)
+```
+
+Dans notre exemple, le modèle Moyenne Mobile (6 jours) a une meilleure
+qualité de prédiction par rapport au Lissage Exponentiel (« alpha =
+0.3 ») et au modèle Autorégressif d’ordre 3. C'est le meilleur pour 3
+des 3 critères
+
+### 5.4.2 Gaz
+
+```{r}
+# Moyenne mobile à 6 jours :
+accuracy(fma6_Gaz)
+# Lissage exponentiel W=0.3 :
+accuracy(Gaz_fES70)
+# Autoregression d'ordre 1 :
+accuracy(Gaz_ar1)
+```
+
+Dans notre exemple, le modèle de lissage exponentiel (0.7) a une
+meilleure qualité de prédiction par rapport aux moyennes mobiles (6
+jours) et au modèle Autorégressif d’ordre 1. C'est le meilleur car sur
+le global c'est lui qui a les critères les moins élevés.
+
+### 5.4.3 Maïs
+
+```{r}
+# Moyenne mobile à 6 jours :
+accuracy(fma6_Corn)
+# Lissage exponentiel W=0.3 :
+accuracy(Corn_fES30)
+# Autoregression d'ordre 3 :
+accuracy(Corn_ar1)
+```
+
+Dans notre exemple, le modèle Moyenne Mobile (6 jours) a une meilleure
+qualité de prédiction par rapport au Lissage Exponentiel (« alpha =
+0.3 ») et au modèle Autorégressif d’ordre 1. C'est le meilleur pour 2
+des 3 critères (RMSE et MAE)
+
+## 5.5 Calcul des rendements prévisionnels
+
+### 5.5.1 Cuivre
+
+Prix au 31/03/2022 :
+
+```{r}
+Cooper_Data_Ukraine[nrow(Cooper_Data_Ukraine), ]
+```
+
+Prix au 1er avril 2022 :
+
+```{r}
+fma6_Cooper
+```
+
+Rendement prévisionnel :
+
+```{r}
+(4.73/4.74)-1
+```
+
+Nous aurons une baisse du cours du cuivre de 0.0021% au 1 avril 2022.
+Nous pouvons donc considérer que nous aurons une stagnation du cours du
+cuivre.
+
+### 5.5.2 Gaz
+
+Prix au 31/03/2022 :
+
+```{r}
+Gaz_Data_Ukraine[nrow(Gaz_Data_Ukraine), ]
+```
+
+Prix au 1er avril 2022 :
+
+```{r}
+Gaz_fES70
+```
+
+Rendement prévisionnel :
+
+```{r}
+(5.54/5.61)-1
+```
+
+Nous aurons une baisse du cours du gaz de 1.25% au 1 avril 2022.
+
+### 5.5.3 Maïs
+
+Prix au 31/03/2022 :
+
+```{r}
+Corn_Data_Ukraine[nrow(Corn_Data_Ukraine), ]
+```
+
+Prix au 1er avril 2022 :
+
+```{r}
+fma6_Corn
+```
+
+Rendement prévisionnel :
+
+```{r}
+(749/738)-1
+```
+
+Nous aurons une hausse du cours du maïs de 1.49% au 1 avril 2022.
+
+## 6. Conclusion
+
+**Résumé des résultats principaux :**
+
+L'analyse de nos trois matières premières que sont le cuivre, le gaz
+naturel et le maïs met en évidence des dynamiques distinctes influencées
+par des facteurs économiques et financiers :
+
+-   Cuivre : Fortement influencé par le marché financier, notamment
+    l'indice Nasdaq, avec une corrélation significative indiquant une
+    sensibilité aux cycles économiques globaux. Les prévisions suggèrent
+    une stagnation de son cours au 1er avril. Il faudrait réaliser des
+    analyses plus poussées afin de pouvoir prédire son cours sur du plus
+    long terme.
+
+-   Gaz naturel : Affiche une forte corrélation avec l’indice Nasdaq,
+    suggérant une dépendance aux tendances macroéconomiques. Les
+    prévisions indiquent une baisse de 1.25% au 1ᵉʳ avril 2022.
+    Néanmoins, il peut par la suite aller autant à la hausse qu'a la
+    baisse en fonction des tendances géo-économiques mondiales.
+
+-   Maïs : Moins influencé par les marchés financiers mais impacté par
+    des facteurs agricoles et économiques spécifiques. Son cours montre
+    une hausse prévisionnelle de 1.49%. Cela est dû au fait que
+    l'Ukraine est un des grands producteurs mondials de maïs.
+
+Recommandations d’investissement
+
+-   Cuivre : Son lien avec les cycles économiques et sa corrélation avec
+    le Nasdaq en font un actif intéressant dans une phase d’expansion
+    économique. Actuellement, une position neutre est conseillée en
+    raison de la prévision de stagnation.
+
+-   Gaz naturel : Malgré son potentiel haussier dans certaines
+    conditions économiques, la baisse prévisionnelle actuelle invite à
+    la prudence. Une surveillance accrue des tendances énergétiques est
+    recommandée avant d’investir. Avec la guerre en Ukraine, la Russie
+    étant un grand exportateur de gaz naturel, les sanctions envers la
+    Russie peuvent pousser à la hausse le cours du gaz naturel
+
+-   Maïs : Présente une dynamique plus stable et une perspective
+    haussière à court terme, ce qui en fait une option plus sécurisée
+    pour les investisseurs cherchant à se protéger contre la volatilité
+    des marchés financiers. Néanmoins, il faudra surveiller de possibles
+    déblocages des productions de maïs via un cessez le feu par exemple.
+
+Perspectives pour 2025
+
+-   Cuivre : Son évolution dépendra largement de la reprise économique
+    mondiale et de la demande industrielle, notamment en lien avec la
+    transition énergétique et les infrastructures. Néanmoins, avec la
+    bulle IA, il est possible qu'il y ai de forts besoin en matières
+    premièrespour produire des puces. Il faudra donc bien surveiller le
+    cours du cuivre sur 2025. Surveiller les annonces des entreprises de
+    l'IA comme Nvidia entre autre nous permettra de prédire le cours
+    ducuivre avec une possible forte corrélation entre les deux. De plus
+    amples investigations pourraient être nécéssaires.
+
+-   Gaz naturel : Facteurs géopolitiques et transition énergétique
+    joueront un rôle majeur. La volatilité du marché est à anticiper,
+    notamment en fonction des décisions politiques en matière d’énergie.
+    Suite à l'investiture de Donald Trump ce 20 janvier et son annonce
+    de vouloir nationaliser la production d'énergie, il sera important
+    de surveiller le cours du gaz qui pourrait être amené à fluctuer
+    fortement à la hausse ou à la baisse en fonction des politiques
+    américaines.
+
+-   Maïs : Les conditions climatiques, les politiques agricoles et la
+    demande mondiale continueront d’être les principaux déterminants de
+    son prix. Une croissance modérée reste probable. Il sera important
+    de surveiller l'actualité du conflit en Ukraine et la localisation
+    des combats pour prédire une possible hausse ou baisse du cours du
+    maïs.
+
+En conclusion, une diversification du portefeuille en fonction des
+tendances économiques globales est recommandée, avec une approche
+prudente sur les actifs énergétiques et une surveillance accrue des
+évolutions macroéconomiques.
+
+Une diversification avec des matières premières tel que l'acier
+pourraient être une option envisageable. Avec la montée en puissance des
+conflits internationaux et le réarmement global des pays, la demande
+d'acier de la part des entreprises du secteur de la défense risque
+d'être accrue sur 2025. Un ajout de l'or au portefeuille pourrait
+également être une bonne option. En effet, avec la montée des tensions
+géopolitiques en 2024, nous sommes entré dans un rallye haussier de
+l'or. En fonction des analystes, cette tendance pourrait bien se
+maintenir en 2025 avec les inquiétudes grandissantes de la population
+mondiale quant à leur avenir. Entre crise de la dette, tensions
+géopolitiques et préocupations environnementales, tout porte à croire
+que les investisseurs particuliers vont se diriger massivement vers des
+valeurs refuges.
